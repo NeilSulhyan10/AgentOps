@@ -1,0 +1,18 @@
+{
+  "incident_id": "incident-002",
+  "title": "Order Service pods OOMKilled after traffic spike",
+  "description": "Order service pods being OOMKilled. No recent deployments. Traffic increased 3x at 2024-01-15T14:00:00Z. Service: order-service, namespace: production.",
+  "severity": "high",
+  "status": "open",
+  "source": "prometheus-alert",
+  "service_name": "order-service",
+  "namespace": "production",
+  "started_at": "2024-01-15T14:05:00Z",
+  "detected_at": "2024-01-15T14:05:00Z",
+  "metadata": {
+    "alert_name": "OrderServiceOOMKill",
+    "traffic_increase": "300%",
+    "oom_count": 12
+  },
+  "tags": ["order", "oom", "traffic", "production"]
+}

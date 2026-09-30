@@ -1,0 +1,38 @@
+{
+  "incident_id": "incident-002",
+  "root_cause": "Traffic spike (3x normal load) caused order-service pods to exceed their 1Gi memory limit, resulting in OOMKills (exit code 137). HPA did not scale fast enough due to memory-based scaling not configured.",
+  "root_cause_type": "kubernetes_oom",
+  "contributing_factors": [
+    "Traffic increased 3x (250 -> 750 req/s) at 14:00:00Z",
+    "Memory limit of 1Gi insufficient for peak load",
+    "HPA only configured for CPU scaling, not memory",
+    "Memory usage reached 98-99% of limit before OOM",
+    "No circuit breaker or rate limiting to protect service"
+  ],
+  "evidence": [
+    "No recent deployments (CI/CD data empty)",
+    "Traffic spike: 3x baseline at incident start",
+    "Multiple pods OOMKilled with exit code 137",
+    "Memory usage 998-1005Mi / 1Gi limit (97-99%)",
+    "Kubernetes events show OOMKilling reason",
+    "Stack trace shows java.lang.OutOfMemoryError",
+    "Error rate 45% correlates with pod crashes",
+    "HPA min/max replicas: 3/20 but only 3 running"
+  ],
+  "agents_consulted": ["kubernetes", "observability"],
+  "expected_confidence": 0.89,
+  "remediation": {
+    "recommendation": "Increase memory limit to 2Gi and add memory-based HPA scaling",
+    "steps": [
+      "Increase memory limit from 1Gi to 2Gi in deployment",
+      "Add memory utilization target to HPA (80%)",
+      "Deploy with canary rollout",
+      "Configure rate limiting at ingress (1000 req/s per pod)",
+      "Add circuit breaker for downstream dependencies",
+      "Monitor memory usage and adjust limits as needed"
+    ],
+    "priority": "high",
+    "estimated_effort": "medium",
+    "risk_level": "low"
+  }
+}

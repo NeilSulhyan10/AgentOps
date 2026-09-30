@@ -1,0 +1,161 @@
+{
+  "pods": [
+    {
+      "name": "payment-service-7d8f9c6b5-xk2m1",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "120Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "250m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-01-15T10:28:15Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Successfully pulled image payment-service:v2.3.1",
+          "timestamp": "2024-01-15T10:28:10Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container payment-service",
+          "timestamp": "2024-01-15T10:28:12Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container payment-service",
+          "timestamp": "2024-01-15T10:28:15Z"
+        }
+      ]
+    },
+    {
+      "name": "payment-service-7d8f9c6b5-9z4n2",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "135Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "280m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-01-15T10:28:20Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Successfully pulled image payment-service:v2.3.1",
+          "timestamp": "2024-01-15T10:28:15Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container payment-service",
+          "timestamp": "2024-01-15T10:28:17Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container payment-service",
+          "timestamp": "2024-01-15T10:28:20Z"
+        }
+      ]
+    },
+    {
+      "name": "payment-service-7d8f9c6b5-p7q8r",
+      "namespace": "production",
+      "status": "OOMKilled",
+      "ready": false,
+      "restart_count": 8,
+      "exit_code": 137,
+      "memory_usage": "495Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "950m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-01-15T10:28:25Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Successfully pulled image payment-service:v2.3.1",
+          "timestamp": "2024-01-15T10:28:20Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container payment-service",
+          "timestamp": "2024-01-15T10:28:22Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container payment-service",
+          "timestamp": "2024-01-15T10:28:25Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container payment-service killed due to memory limit",
+          "timestamp": "2024-01-15T10:29:45Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container payment-service killed due to memory limit",
+          "timestamp": "2024-01-15T10:30:12Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container payment-service killed due to memory limit",
+          "timestamp": "2024-01-15T10:30:38Z"
+        }
+      ]
+    },
+    {
+      "name": "payment-service-7d8f9c6b5-v3w4x",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "110Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "220m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-01-15T10:28:30Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Successfully pulled image payment-service:v2.3.1",
+          "timestamp": "2024-01-15T10:28:25Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Created",
+          "message": "Created container payment-service",
+          "timestamp": "2024-01-15T10:28:27Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container payment-service",
+          "timestamp": "2024-01-15T10:28:30Z"
+        }
+      ]
+    }
+  ],
+  "node_info": {
+    "node_name": "worker-node-3",
+    "memory_capacity": "32Gi",
+    "memory_allocatable": "30Gi",
+    "pods_capacity": 110,
+    "pods_allocatable": 110
+  }
+}

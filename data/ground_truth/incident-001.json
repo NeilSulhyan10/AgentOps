@@ -1,0 +1,38 @@
+{
+  "incident_id": "incident-001",
+  "root_cause": "Recent deployment changed the memory limit from 1Gi to 512Mi, causing payment-service pods to exceed their configured memory limit and terminate with exit code 137 (OOMKilled).",
+  "root_cause_type": "deployment_induced_failure",
+  "contributing_factors": [
+    "Memory limit reduced from 1Gi to 512Mi in deployment configuration",
+    "Application memory usage (495Mi) exceeded new limit (512Mi) under load",
+    "No canary deployment to catch memory issue before full rollout",
+    "Memory request also reduced from 512Mi to 256Mi, affecting QoS class"
+  ],
+  "evidence": [
+    "Deployment occurred at 2024-01-15T10:28:00Z (2 minutes before incident)",
+    "Config change: resources.limits.memory from 1Gi to 512Mi",
+    "Config change: resources.requests.memory from 512Mi to 256Mi",
+    "Pod payment-service-7d8f9c6b5-p7q8r exited with code 137",
+    "Pod restart count: 8 (repeated OOM kills)",
+    "Memory usage at crash: 495Mi / 512Mi limit (96.7%)",
+    "Kubernetes events show OOMKilling reason",
+    "Stack trace shows java.lang.OutOfMemoryError: Java heap space",
+    "Error rate 38.5% correlates with pod crashes",
+    "No traffic spike observed (latency P99 320ms, not extreme)"
+  ],
+  "agents_consulted": ["cicd", "kubernetes", "observability"],
+  "expected_confidence": 0.92,
+  "remediation": {
+    "recommendation": "Restore previous memory limit (1Gi) and redeploy with canary rollout",
+    "steps": [
+      "Revert memory limit change in deployment config (512Mi -> 1Gi)",
+      "Revert memory request change (256Mi -> 512Mi)",
+      "Deploy to canary (10% traffic) and monitor memory usage",
+      "Verify error rate drops below 1%",
+      "Gradually increase traffic to 100% over 30 minutes"
+    ],
+    "priority": "high",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

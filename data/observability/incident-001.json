@@ -1,0 +1,103 @@
+{
+  "latency": {
+    "p50": 45,
+    "p95": 180,
+    "p99": 320,
+    "unit": "ms",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "service": "payment-service"
+  },
+  "error_rate": {
+    "rate": 38.5,
+    "count": 1542,
+    "total_requests": 4000,
+    "timestamp": "2024-01-15T10:30:00Z",
+    "service": "payment-service",
+    "error_codes": {
+      "500": 1200,
+      "502": 200,
+      "503": 142,
+      "504": 0
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-01-15T10:29:45Z",
+      "level": "ERROR",
+      "message": "Container payment-service-7d8f9c6b5-p7q8r killed by OOMKiller",
+      "service": "payment-service",
+      "pod": "payment-service-7d8f9c6b5-p7q8r",
+      "namespace": "production"
+    },
+    {
+      "timestamp": "2024-01-15T10:30:00Z",
+      "level": "ERROR",
+      "message": "Payment processing failed: connection reset by peer",
+      "service": "payment-service",
+      "trace_id": "a1b2c3d4e5f6",
+      "span_id": "1234567890abcdef"
+    },
+    {
+      "timestamp": "2024-01-15T10:30:05Z",
+      "level": "WARN",
+      "message": "High memory usage detected: 495Mi/512Mi",
+      "service": "payment-service",
+      "pod": "payment-service-7d8f9c6b5-p7q8r"
+    },
+    {
+      "timestamp": "2024-01-15T10:30:10Z",
+      "level": "ERROR",
+      "message": "Failed to process payment: timeout after 30s",
+      "service": "payment-service",
+      "trace_id": "b2c3d4e5f6a7",
+      "span_id": "2345678901bcdef1"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-01-15T10:30:00Z",
+      "error": "java.lang.OutOfMemoryError: Java heap space",
+      "service": "payment-service",
+      "pod": "payment-service-7d8f9c6b5-p7q8r",
+      "trace": "java.lang.OutOfMemoryError: Java heap space\n\tat java.base/java.util.Arrays.copyOf(Arrays.java:3512)\n\tat java.base/java.lang.StringBuilder.toString(StringBuilder.java:481)\n\tat com.payment.service.PaymentProcessor.process(PaymentProcessor.java:142)\n\tat com.payment.service.PaymentHandler.handle(PaymentHandler.java:67)\n\tat com.payment.controller.PaymentController.processPayment(PaymentController.java:45)"
+    }
+  ],
+  "traces": [
+    {
+      "trace_id": "a1b2c3d4e5f6",
+      "span_id": "1234567890abcdef",
+      "parent_span_id": null,
+      "service": "payment-service",
+      "operation": "POST /api/v1/payments",
+      "duration": 30000,
+      "status": "error",
+      "error": "timeout",
+      "timestamp": "2024-01-15T10:30:00Z",
+      "tags": {
+        "http.status_code": 504,
+        "http.method": "POST",
+        "http.url": "/api/v1/payments"
+      }
+    },
+    {
+      "trace_id": "b2c3d4e5f6a7",
+      "span_id": "2345678901bcdef1",
+      "parent_span_id": null,
+      "service": "payment-service",
+      "operation": "POST /api/v1/payments",
+      "duration": 28500,
+      "status": "error",
+      "error": "connection_reset",
+      "timestamp": "2024-01-15T10:30:05Z",
+      "tags": {
+        "http.status_code": 502,
+        "http.method": "POST",
+        "http.url": "/api/v1/payments"
+      }
+    }
+  ],
+  "correlation_ids": [
+    "a1b2c3d4e5f6",
+    "b2c3d4e5f6a7"
+  ]
+}

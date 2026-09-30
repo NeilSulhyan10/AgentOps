@@ -1,0 +1,10 @@
+{
+  "deployments": [],
+  "code_changes": [],
+  "config_changes": [],
+  "dependency_changes": [],
+  "rollout_info": {
+    "type": "none",
+    "note": "No recent deployments"
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "pods": [
+    {
+      "name": "order-service-5f6g7h8i9-abc12",
+      "namespace": "production",
+      "status": "OOMKilled",
+      "ready": false,
+      "restart_count": 5,
+      "exit_code": 137,
+      "memory_usage": "1005Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "980m",
+      "cpu_limit": "2000m",
+      "started_at": "2024-01-15T13:55:00Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container order-service",
+          "timestamp": "2024-01-15T13:55:00Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container order-service killed due to memory limit",
+          "timestamp": "2024-01-15T14:02:15Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container order-service killed due to memory limit",
+          "timestamp": "2024-01-15T14:03:45Z"
+        }
+      ]
+    },
+    {
+      "name": "order-service-5f6g7h8i9-def34",
+      "namespace": "production",
+      "status": "OOMKilled",
+      "ready": false,
+      "restart_count": 4,
+      "exit_code": 137,
+      "memory_usage": "998Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "965m",
+      "cpu_limit": "2000m",
+      "started_at": "2024-01-15T13:55:00Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container order-service",
+          "timestamp": "2024-01-15T13:55:00Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container order-service killed due to memory limit",
+          "timestamp": "2024-01-15T14:02:30Z"
+        }
+      ]
+    },
+    {
+      "name": "order-service-5f6g7h8i9-ghi56",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "850Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "720m",
+      "cpu_limit": "2000m",
+      "started_at": "2024-01-15T13:55:00Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container order-service",
+          "timestamp": "2024-01-15T13:55:00Z"
+        }
+      ]
+    }
+  ],
+  "hpa_info": {
+    "min_replicas": 3,
+    "max_replicas": 20,
+    "current_replicas": 3,
+    "target_cpu_utilization": 70,
+    "target_memory_utilization": 80
+  }
+}

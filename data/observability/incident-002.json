@@ -1,0 +1,87 @@
+{
+  "latency": {
+    "p50": 120,
+    "p95": 850,
+    "p99": 2100,
+    "unit": "ms",
+    "timestamp": "2024-01-15T14:05:00Z",
+    "service": "order-service"
+  },
+  "error_rate": {
+    "rate": 45.2,
+    "count": 3400,
+    "total_requests": 7500,
+    "timestamp": "2024-01-15T14:05:00Z",
+    "service": "order-service",
+    "error_codes": {
+      "500": 2000,
+      "502": 800,
+      "503": 600,
+      "504": 0
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-01-15T14:02:15Z",
+      "level": "ERROR",
+      "message": "Container order-service-5f6g7h8i9-abc12 killed by OOMKiller",
+      "service": "order-service",
+      "pod": "order-service-5f6g7h8i9-abc12",
+      "namespace": "production"
+    },
+    {
+      "timestamp": "2024-01-15T14:02:30Z",
+      "level": "ERROR",
+      "message": "Container order-service-5f6g7h8i9-def34 killed by OOMKiller",
+      "service": "order-service",
+      "pod": "order-service-5f6g7h8i9-def34",
+      "namespace": "production"
+    },
+    {
+      "timestamp": "2024-01-15T14:03:00Z",
+      "level": "WARN",
+      "message": "Traffic spike detected: 3x normal request rate",
+      "service": "order-service",
+      "requests_per_second": 750
+    },
+    {
+      "timestamp": "2024-01-15T14:03:45Z",
+      "level": "WARN",
+      "message": "High memory usage: 1005Mi/1Gi on order-service-5f6g7h8i9-abc12",
+      "service": "order-service"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-01-15T14:02:15Z",
+      "error": "java.lang.OutOfMemoryError: Java heap space",
+      "service": "order-service",
+      "pod": "order-service-5f6g7h8i9-abc12",
+      "trace": "java.lang.OutOfMemoryError: Java heap space\n\tat java.base/java.util.HashMap.resize(HashMap.java:712)\n\tat java.base/java.util.HashMap.putVal(HashMap.java:662)\n\tat com.order.service.OrderCache.put(OrderCache.java:89)\n\tat com.order.service.OrderProcessor.process(OrderProcessor.java:156)"
+    }
+  ],
+  "traces": [
+    {
+      "trace_id": "c3d4e5f6a7b8",
+      "span_id": "3456789012cdef12",
+      "service": "order-service",
+      "operation": "POST /api/v1/orders",
+      "duration": 5000,
+      "status": "error",
+      "error": "oom_killed",
+      "timestamp": "2024-01-15T14:02:15Z"
+    }
+  ],
+  "metrics": {
+    "requests_per_second": {
+      "baseline": 250,
+      "current": 750,
+      "increase_percent": 200
+    },
+    "memory_usage_percent": {
+      "pod_1": 98.5,
+      "pod_2": 97.5,
+      "pod_3": 83.0
+    }
+  }
+}

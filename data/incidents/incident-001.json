@@ -1,0 +1,18 @@
+{
+  "incident_id": "incident-001",
+  "title": "Payment API 5xx rate increased to 38%",
+  "description": "Payment service returning 5xx errors at 38% rate. Incident detected at 2024-01-15T10:30:00Z. Service: payment-service, namespace: production. Recent deployment occurred at 2024-01-15T10:28:00Z.",
+  "severity": "critical",
+  "status": "open",
+  "source": "prometheus-alert",
+  "service_name": "payment-service",
+  "namespace": "production",
+  "started_at": "2024-01-15T10:30:00Z",
+  "detected_at": "2024-01-15T10:30:00Z",
+  "metadata": {
+    "alert_name": "PaymentServiceHighErrorRate",
+    "error_rate": 38,
+    "threshold": 5
+  },
+  "tags": ["payment", "api", "5xx", "production"]
+}
