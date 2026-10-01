@@ -52,6 +52,7 @@ class EvidenceType(str, Enum):
     TRACE = "trace"
     SPAN_DURATION = "span_duration"
     ERROR_STATUS = "error_status"
+    JOB_FAILURE = "job_failure"
 
 
 class HypothesisType(str, Enum):

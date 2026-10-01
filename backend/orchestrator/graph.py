@@ -2,6 +2,7 @@ from typing import Dict, List, Any, Optional, TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 import operator
+import asyncio
 
 from backend.models import (
     InvestigationState,
@@ -43,6 +44,8 @@ def normalize_incident(state: GraphState) -> GraphState:
     investigation = state["investigation"]
     investigation.investigation_status = InvestigationStatus.RUNNING
     investigation.updated_at = investigation.updated_at
+    import logging
+    logging.getLogger(__name__).info(f"normalize_incident: investigation {investigation.investigation_id}")
     return {"investigation": investigation, "next_action": "pre_filter"}
 
 
@@ -77,21 +80,35 @@ def rule_based_pre_filter(state: GraphState) -> GraphState:
     investigation.current_hypothesis = initial_hypothesis
     investigation.evidence_gaps = evidence_gaps
     investigation.updated_at = investigation.updated_at
+    import logging
+    logging.getLogger(__name__).info(f"rule_based_pre_filter: investigation {investigation.investigation_id}, hypothesis={initial_hypothesis}, gaps={evidence_gaps}")
 
     return {"investigation": investigation, "next_action": "load_evidence"}
 
 
 def load_evidence(state: GraphState) -> GraphState:
     investigation = state["investigation"]
+    import logging
+    logging.getLogger(__name__).info(f"load_evidence: investigation {investigation.investigation_id}, existing_evidence={len(investigation.evidence)}")
     
-    cicd_evidence = get_cicd_evidence(investigation.incident)
+    # Check if GitHub Actions evidence was already provided (by monitor)
+    has_github_evidence = any(
+        ev.source in ("github_actions", "github_actions_job_logs") 
+        for ev in investigation.evidence
+    )
+    
+    if not has_github_evidence:
+        cicd_evidence = get_cicd_evidence(investigation.incident)
+        investigation.evidence.extend(cicd_evidence)
+    
+    # Always load kubernetes and observability evidence from fixtures
     k8s_evidence = get_kubernetes_evidence(investigation.incident)
     obs_evidence = get_observability_evidence(investigation.incident)
     
-    investigation.evidence.extend(cicd_evidence)
     investigation.evidence.extend(k8s_evidence)
     investigation.evidence.extend(obs_evidence)
     investigation.updated_at = investigation.updated_at
+    logging.getLogger(__name__).info(f"load_evidence: investigation {investigation.investigation_id}, total_evidence={len(investigation.evidence)}")
     
     return {"investigation": investigation, "next_action": "route"}
 
@@ -116,6 +133,8 @@ def _format_findings_summary(findings: list) -> str:
 
 async def adaptive_router(state: GraphState) -> GraphState:
     investigation = state["investigation"]
+    import logging
+    logging.getLogger(__name__).info(f"adaptive_router: investigation {investigation.investigation_id}, iteration={investigation.iteration_count}")
 
     if investigation.iteration_count >= investigation.max_iterations:
         investigation.investigation_status = InvestigationStatus.MAX_ITERATIONS_REACHED
@@ -184,6 +203,7 @@ Respond with JSON only in this exact format:
     investigation.routing_decisions.append(decision)
     investigation.iteration_count += 1
     investigation.updated_at = investigation.updated_at
+    logging.getLogger(__name__).info(f"adaptive_router: investigation {investigation.investigation_id}, selected_agent={selected_agent}, reasoning={reasoning}")
 
     return {
         "investigation": investigation,
@@ -211,27 +231,27 @@ def _format_findings_summary(findings: list) -> str:
     return "\n".join(lines)
 
 
-def invoke_cicd_agent(state: GraphState) -> GraphState:
+async def invoke_cicd_agent(state: GraphState) -> GraphState:
     investigation = state["investigation"]
-    return _invoke_agent(investigation, AgentType.CICD)
+    return await _invoke_agent_async(investigation, AgentType.CICD)
 
 
-def invoke_kubernetes_agent(state: GraphState) -> GraphState:
+async def invoke_kubernetes_agent(state: GraphState) -> GraphState:
     investigation = state["investigation"]
-    return _invoke_agent(investigation, AgentType.KUBERNETES)
+    return await _invoke_agent_async(investigation, AgentType.KUBERNETES)
 
 
-def invoke_observability_agent(state: GraphState) -> GraphState:
+async def invoke_observability_agent(state: GraphState) -> GraphState:
     investigation = state["investigation"]
-    return _invoke_agent(investigation, AgentType.OBSERVABILITY)
+    return await _invoke_agent_async(investigation, AgentType.OBSERVABILITY)
 
 
-def _invoke_agent(investigation: InvestigationState, agent_type: AgentType) -> GraphState:
+async def _invoke_agent_async(investigation: InvestigationState, agent_type: AgentType) -> GraphState:
     from backend.agents.cicd.agent import CICDAgent
     from backend.agents.kubernetes.agent import KubernetesAgent
     from backend.agents.observability.agent import ObservabilityAgent
     from backend.llm.schemas import AgentAnalysisResponse
-    import asyncio
+    import logging
 
     agents = {
         AgentType.CICD: CICDAgent(),
@@ -240,6 +260,7 @@ def _invoke_agent(investigation: InvestigationState, agent_type: AgentType) -> G
     }
 
     agent = agents[agent_type]
+    logging.getLogger(__name__).info(f"_invoke_agent_async: investigation {investigation.investigation_id}, agent_type={agent_type}")
 
     llm = get_llm_provider()
     prompt = f"""ANALYZE: Agent {agent_type.value} investigating incident.
@@ -267,12 +288,12 @@ Respond with JSON only in this exact format:
 }}
 """
 
-    analysis_response = asyncio.run(llm.generate(LLMRequest(
+    analysis_response = await llm.generate(LLMRequest(
         prompt=prompt,
         system_prompt=f"You are a {agent_type.value} specialist investigating a DevOps incident. Analyze the evidence and provide a structured finding. Respond with JSON only.",
         temperature=0.1,
         max_tokens=2048
-    )))
+    ))
 
     try:
         analysis_data = AgentAnalysisResponse.model_validate_json(analysis_response.content)
@@ -300,6 +321,7 @@ Respond with JSON only in this exact format:
     investigation.agents_invoked.append(agent_type)
     investigation.confidence_scores[agent_type] = finding.confidence
     investigation.updated_at = investigation.updated_at
+    logging.getLogger(__name__).info(f"_invoke_agent_async: investigation {investigation.investigation_id}, agent_type={agent_type}, finding={finding.finding[:100]}")
 
     if finding.evidence:
         investigation.evidence_gaps = [g for g in investigation.evidence_gaps if g not in finding.evidence]

@@ -97,10 +97,8 @@ class GitHubActionsMonitor:
         self._running = True
         self._task = asyncio.create_task(self._monitor_loop())
         logger.info(
-            f"GitHub Actions monitor started for {self.owner}/{self.repo}",
-            branch=self.branch,
-            poll_interval_seconds=self.poll_interval_seconds,
-            time_window_hours=self.time_window_hours
+            f"GitHub Actions monitor started for {self.owner}/{self.repo} "
+            f"(branch={self.branch}, poll_interval={self.poll_interval_seconds}s, time_window={self.time_window_hours}h)"
         )
     
     async def stop(self):
@@ -282,7 +280,7 @@ class GitHubActionsMonitor:
         )
         
         # Save incident to MongoDB - check if already exists first
-        existing_incident = await IncidentDoc.find_one(IncidentDoc.incident_id == incident.incident_id)
+        existing_incident = await IncidentDoc.find_one({"incident_id": incident.incident_id})
         if existing_incident:
             logger.info(f"Incident {incident.incident_id} already exists, using existing")
             incident = Incident(

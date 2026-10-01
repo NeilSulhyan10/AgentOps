@@ -128,9 +128,9 @@ class GitHubActionsClient:
         if event:
             params["event"] = event
         if status:
-            params["status"] = status.value
+            params["status"] = status.value if hasattr(status, 'value') else status
         if conclusion:
-            params["conclusion"] = conclusion.value
+            params["conclusion"] = conclusion.value if hasattr(conclusion, 'value') else conclusion
         if created_after:
             params["created"] = f">{created_after.isoformat()}"
         if created_before:
@@ -138,7 +138,14 @@ class GitHubActionsClient:
         
         data = await self._request("GET", f"/repos/{owner}/{repo}/actions/runs", params=params)
         runs = data.get("workflow_runs", [])
-        return [WorkflowRun(**run) for run in runs]
+        runs = [WorkflowRun(**run) for run in runs]
+        
+        # Client-side filtering for conclusion since GitHub API may not filter correctly
+        if conclusion:
+            conclusion_value = conclusion.value if hasattr(conclusion, 'value') else conclusion
+            runs = [run for run in runs if run.conclusion == conclusion_value]
+        
+        return runs
     
     async def get_workflow_jobs(
         self,
@@ -158,14 +165,24 @@ class GitHubActionsClient:
         repo: str,
         job_id: int,
     ) -> str:
+        # GitHub Actions job logs endpoint returns a redirect to the actual logs URL
+        # We need to follow redirects and accept the appropriate content type
         response = await self.client.get(
             f"/repos/{owner}/{repo}/actions/jobs/{job_id}/logs",
-            headers={"Accept": "text/plain"},
+            headers={"Accept": "application/vnd.github+json"},
+            follow_redirects=True,
         )
         if response.status_code == 403:
             raise RateLimitError("Rate limit exceeded")
         if response.status_code == 404:
             raise GitHubAPIError("Job logs not found", status_code=404)
+        if response.status_code == 302 or response.status_code == 301:
+            # Follow redirect to get actual logs
+            redirect_url = response.headers.get("Location")
+            if redirect_url:
+                logs_response = await self.client.get(redirect_url, follow_redirects=True)
+                if logs_response.status_code == 200:
+                    return logs_response.text
         return response.text
     
     async def get_commits(

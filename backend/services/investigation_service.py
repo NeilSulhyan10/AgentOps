@@ -52,7 +52,9 @@ class InvestigationService:
             "next_action": "normalize"
         }
 
+        logger.info(f"Starting graph execution for investigation {initial_state.investigation_id}")
         result = await self.graph.ainvoke(graph_input)
+        logger.info(f"Graph execution completed for investigation {initial_state.investigation_id}")
         final_state = result["investigation"]
         await mongo_state_manager.update_state(final_state)
 

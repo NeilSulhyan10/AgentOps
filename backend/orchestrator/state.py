@@ -258,44 +258,44 @@ class MongoStateManager:
 
     async def _doc_to_state(self, doc: InvestigationDoc) -> InvestigationState:
         print(f"DEBUG _doc_to_state: doc.incident_id = {doc.incident_id}")
-        incident_doc = await IncidentDoc.find_one(IncidentDoc.incident_id == doc.incident_id)
+        incident_doc = await IncidentDoc.find_one({"incident_id": doc.incident_id})
         print(f"DEBUG _doc_to_state: incident_doc = {incident_doc}")
         print(f"DEBUG _doc_to_state: incident_doc.incident_id if exists = {incident_doc.incident_id if incident_doc else 'None'}")
         incident = self._doc_to_incident(incident_doc) if incident_doc else None
 
         evidence = []
         for ev_id in doc.evidence_ids:
-            ev_doc = await EvidenceDoc.find_one(EvidenceDoc.evidence_id == ev_id)
+            ev_doc = await EvidenceDoc.find_one({"evidence_id": ev_id})
             if ev_doc:
                 evidence.append(self._doc_to_evidence(ev_doc))
 
         findings = []
         for f_id in doc.finding_ids:
-            f_doc = await AgentFindingDoc.find_one(AgentFindingDoc.finding_id == f_id)
+            f_doc = await AgentFindingDoc.find_one({"finding_id": f_id})
             if f_doc:
                 findings.append(self._doc_to_finding(f_doc))
 
         decisions = []
         for d_id in doc.routing_decision_ids:
-            d_doc = await RoutingDecisionDoc.find_one(RoutingDecisionDoc.decision_id == d_id)
+            d_doc = await RoutingDecisionDoc.find_one({"decision_id": d_id})
             if d_doc:
                 decisions.append(self._doc_to_decision(d_doc))
 
         confidence_history = []
         for c_id in doc.confidence_entry_ids:
-            c_doc = await ConfidenceEntryDoc.find_one(ConfidenceEntryDoc.entry_id == c_id)
+            c_doc = await ConfidenceEntryDoc.find_one({"entry_id": c_id})
             if c_doc:
                 confidence_history.append(self._doc_to_confidence(c_doc))
 
         rca = None
         if doc.rca_id:
-            rca_doc = await RootCauseAnalysisDoc.find_one(RootCauseAnalysisDoc.rca_id == doc.rca_id)
+            rca_doc = await RootCauseAnalysisDoc.find_one({"rca_id": doc.rca_id})
             if rca_doc:
                 rca = self._doc_to_rca(rca_doc)
 
         remediation = None
         if doc.remediation_id:
-            rem_doc = await RemediationDoc.find_one(RemediationDoc.remediation_id == doc.remediation_id)
+            rem_doc = await RemediationDoc.find_one({"remediation_id": doc.remediation_id})
             if rem_doc:
                 remediation = self._doc_to_remediation(rem_doc)
 
@@ -324,14 +324,14 @@ class MongoStateManager:
 
     async def create_state(self, incident: Incident, max_iterations: int = 5, investigation_state: Optional[InvestigationState] = None, evidence: Optional[List["Evidence"]] = None) -> InvestigationState:
         # Check if IncidentDoc already exists
-        existing_incident = await IncidentDoc.find_one(IncidentDoc.incident_id == incident.incident_id)
+        existing_incident = await IncidentDoc.find_one({"incident_id": incident.incident_id})
         if not existing_incident:
             incident_doc = self._incident_to_doc(incident)
             try:
                 await incident_doc.insert()
             except Exception:
                 # Ignore duplicate key errors (race condition)
-                existing_incident = await IncidentDoc.find_one(IncidentDoc.incident_id == incident.incident_id)
+                existing_incident = await IncidentDoc.find_one({"incident_id": incident.incident_id})
                 if not existing_incident:
                     raise
 
@@ -361,19 +361,19 @@ class MongoStateManager:
         return state
 
     async def get_state(self, investigation_id: str) -> Optional[InvestigationState]:
-        doc = await InvestigationDoc.find_one(InvestigationDoc.investigation_id == investigation_id)
+        doc = await InvestigationDoc.find_one({"investigation_id": investigation_id})
         if not doc:
             return None
         return await self._doc_to_state(doc)
 
     async def update_state(self, state: InvestigationState) -> InvestigationState:
         # Ensure IncidentDoc exists
-        incident_doc = await IncidentDoc.find_one(IncidentDoc.incident_id == state.incident_id)
+        incident_doc = await IncidentDoc.find_one({"incident_id": state.incident_id})
         if not incident_doc:
             incident_doc = self._incident_to_doc(state.incident)
             await incident_doc.insert()
 
-        doc = await InvestigationDoc.find_one(InvestigationDoc.investigation_id == state.investigation_id)
+        doc = await InvestigationDoc.find_one({"investigation_id": state.investigation_id})
         if not doc:
             doc = self._state_to_doc(state)
             await doc.insert()
@@ -401,42 +401,42 @@ class MongoStateManager:
 
         for ev in state.evidence:
             ev.investigation_id = state.investigation_id
-            ev_doc = await EvidenceDoc.find_one(EvidenceDoc.evidence_id == ev.evidence_id)
+            ev_doc = await EvidenceDoc.find_one({"evidence_id": ev.evidence_id})
             if not ev_doc:
                 ev_doc = self._evidence_to_doc(ev, state.investigation_id)
                 await ev_doc.insert()
 
         for finding in state.agent_findings:
             finding.investigation_id = state.investigation_id
-            f_doc = await AgentFindingDoc.find_one(AgentFindingDoc.finding_id == finding.finding_id)
+            f_doc = await AgentFindingDoc.find_one({"finding_id": finding.finding_id})
             if not f_doc:
                 f_doc = self._finding_to_doc(finding, state.investigation_id)
                 await f_doc.insert()
 
         for decision in state.routing_decisions:
             decision.investigation_id = state.investigation_id
-            d_doc = await RoutingDecisionDoc.find_one(RoutingDecisionDoc.decision_id == decision.decision_id)
+            d_doc = await RoutingDecisionDoc.find_one({"decision_id": decision.decision_id})
             if not d_doc:
                 d_doc = self._decision_to_doc(decision, state.investigation_id)
                 await d_doc.insert()
 
         for entry in state.confidence_history:
             entry.investigation_id = state.investigation_id
-            c_doc = await ConfidenceEntryDoc.find_one(ConfidenceEntryDoc.entry_id == entry.entry_id)
+            c_doc = await ConfidenceEntryDoc.find_one({"entry_id": entry.entry_id})
             if not c_doc:
                 c_doc = self._confidence_to_doc(entry, state.investigation_id)
                 await c_doc.insert()
 
         if state.root_cause:
             state.root_cause.investigation_id = state.investigation_id
-            rca_doc = await RootCauseAnalysisDoc.find_one(RootCauseAnalysisDoc.rca_id == state.root_cause.rca_id)
+            rca_doc = await RootCauseAnalysisDoc.find_one({"rca_id": state.root_cause.rca_id})
             if not rca_doc:
                 rca_doc = self._rca_to_doc(state.root_cause)
                 await rca_doc.insert()
 
         if state.remediation:
             state.remediation.investigation_id = state.investigation_id
-            rem_doc = await RemediationDoc.find_one(RemediationDoc.remediation_id == state.remediation.remediation_id)
+            rem_doc = await RemediationDoc.find_one({"remediation_id": state.remediation.remediation_id})
             if not rem_doc:
                 rem_doc = self._remediation_to_doc(state.remediation)
                 await rem_doc.insert()
@@ -444,7 +444,7 @@ class MongoStateManager:
         return state
 
     async def delete_state(self, investigation_id: str) -> bool:
-        doc = await InvestigationDoc.find_one(InvestigationDoc.investigation_id == investigation_id)
+        doc = await InvestigationDoc.find_one({"investigation_id": investigation_id})
         if doc:
             await doc.delete()
             await EvidenceDoc.find({"investigation_id": investigation_id}).delete()
@@ -459,7 +459,7 @@ class MongoStateManager:
     async def list_states(self, status: Optional[InvestigationStatus] = None) -> List[InvestigationState]:
         query = InvestigationDoc.find()
         if status:
-            query = query.find(InvestigationDoc.investigation_status == status)
+            query = query.find({"investigation_status": status})
         docs = await query.sort(-InvestigationDoc.created_at).to_list()
         states = []
         for doc in docs:
