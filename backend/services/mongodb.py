@@ -4,7 +4,8 @@ from typing import Optional
 from backend.config import settings
 from backend.models.mongodb import (
     IncidentDoc, InvestigationDoc, EvidenceDoc, AgentFindingDoc,
-    RoutingDecisionDoc, ConfidenceEntryDoc, RootCauseAnalysisDoc, RemediationDoc
+    RoutingDecisionDoc, ConfidenceEntryDoc, RootCauseAnalysisDoc, RemediationDoc,
+    ProcessedRunDoc
 )
 
 
@@ -27,6 +28,7 @@ class MongoDB:
                 ConfidenceEntryDoc,
                 RootCauseAnalysisDoc,
                 RemediationDoc,
+                ProcessedRunDoc,
             ]
         )
 

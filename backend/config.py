@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     evaluation_output_path: str = "/app/evaluation/experiments"
     data_dir: str = "/app/data"
 
+    # GitHub Actions Configuration (Required for CI/CD data)
+    github_token: Optional[str] = None
+    github_owner: Optional[str] = None
+    github_repo: Optional[str] = None
+    github_branch: Optional[str] = None
+    github_time_window_hours: int = 24
+    github_poll_interval_seconds: int = 60
+
     enable_tracing: bool = False
     otel_exporter_otlp_endpoint: Optional[str] = None
 

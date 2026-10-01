@@ -155,3 +155,16 @@ class InvestigationDoc(Document):
     class Settings:
         name = "investigations"
         use_state_management = True
+
+
+class ProcessedRunDoc(Document):
+    """Track processed GitHub workflow run IDs to prevent duplicate incident creation."""
+    run_id: int = Field(..., unique=True)
+    workflow_name: str
+    run_number: int
+    concluded_at: datetime
+    processed_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "processed_runs"
+        use_state_management = True

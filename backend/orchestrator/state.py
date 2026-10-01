@@ -322,15 +322,18 @@ class MongoStateManager:
             completed_at=doc.completed_at,
         )
 
-    async def create_state(self, incident: Incident, max_iterations: int = 5, investigation_state: Optional[InvestigationState] = None) -> InvestigationState:
-        incident_doc = self._incident_to_doc(incident)
-        print(f"DEBUG create_state: incident_doc.incident_id = {incident_doc.incident_id}")
-        try:
-            await incident_doc.insert()
-            print(f"DEBUG create_state: after incident_doc insert")
-        except Exception as e:
-            print(f"DEBUG create_state: incident_doc insert failed: {e}")
-            raise
+    async def create_state(self, incident: Incident, max_iterations: int = 5, investigation_state: Optional[InvestigationState] = None, evidence: Optional[List["Evidence"]] = None) -> InvestigationState:
+        # Check if IncidentDoc already exists
+        existing_incident = await IncidentDoc.find_one(IncidentDoc.incident_id == incident.incident_id)
+        if not existing_incident:
+            incident_doc = self._incident_to_doc(incident)
+            try:
+                await incident_doc.insert()
+            except Exception:
+                # Ignore duplicate key errors (race condition)
+                existing_incident = await IncidentDoc.find_one(IncidentDoc.incident_id == incident.incident_id)
+                if not existing_incident:
+                    raise
 
         if investigation_state is None:
             state = InvestigationState(
@@ -338,17 +341,17 @@ class MongoStateManager:
                 incident_id=incident.incident_id,
                 max_iterations=max_iterations,
                 investigation_status=InvestigationStatus.PENDING,
+                evidence=evidence or [],
             )
         else:
             state = investigation_state
             state.max_iterations = max_iterations
             state.investigation_status = InvestigationStatus.PENDING
+            if evidence:
+                state.evidence.extend(evidence)
 
-        print(f"DEBUG create_state: state.investigation_id = {state.investigation_id}")
         doc = self._state_to_doc(state)
-        print(f"DEBUG create_state: doc.investigation_id = {doc.investigation_id}")
         await doc.insert()
-        print(f"DEBUG create_state: after insert, doc.investigation_id = {doc.investigation_id}")
 
         for ev in state.evidence:
             ev.investigation_id = state.investigation_id

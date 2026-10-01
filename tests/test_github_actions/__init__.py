@@ -1,0 +1,1 @@
+# GitHub Actions adapter tests - Real data only

@@ -7,6 +7,7 @@ from backend.config import settings
 from backend.api.routes import router, investigation_router
 from backend.services.investigation_service import investigation_service
 from backend.services.mongodb import mongodb
+from backend.services.github_monitor import start_github_monitor, stop_github_monitor
 
 
 structlog.configure(
@@ -35,7 +36,13 @@ async def lifespan(app: FastAPI):
     logger.info("Starting AgentOps backend", env=settings.app_env)
     await mongodb.connect()
     logger.info("MongoDB connected")
+    
+    # Start GitHub Actions monitor
+    await start_github_monitor()
+    
     yield
+    
+    await stop_github_monitor()
     await mongodb.close()
     logger.info("Shutting down AgentOps backend")
 
