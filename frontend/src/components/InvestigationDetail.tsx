@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { investigationApi } from '../api/client'
-import type { InvestigationState, TimelineEntry, AgentType } from '../types'
+import { useInvestigationRealtime } from '../hooks/useInvestigationWS'
+import type { Evidence, InvestigationState, TimelineEntry, AgentType } from '../types'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/Card'
 import { Badge } from './ui/Badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs'
 import { Progress } from './ui/Progress'
 import { Button } from './ui/Button'
-import { formatDate, getStatusColor, getAgentColor, formatConfidence, getConfidenceColor, truncate } from '../utils/helpers'
+import { formatDate, formatIncidentId, getStatusColor, getAgentColor, formatConfidence, getConfidenceColor, truncate } from '../utils/helpers'
 import { 
   AlertTriangle, 
   Brain, 
@@ -16,7 +17,13 @@ import {
   FileText,
   Wrench,
   Zap,
-  BarChart2
+  BarChart2,
+  Loader2,
+  Wifi,
+  WifiOff,
+  X,
+  Copy,
+  Check
 } from 'lucide-react'
 import { cn } from '../utils/helpers'
 import { ConfidenceChart } from './ConfidenceChart'
@@ -30,10 +37,22 @@ const agentLabels: Record<AgentType, string> = {
 export function InvestigationDetail() {
   const { investigationId } = useParams<{ investigationId: string }>()
   const navigate = useNavigate()
-  const [investigation, setInvestigation] = useState<InvestigationState | null>(null)
+  const [baseInvestigation, setInvestigation] = useState<InvestigationState | null>(null)
   const [timeline, setTimeline] = useState<TimelineEntry[]>([])
+  const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Real-time WebSocket connection
+  const { 
+    connected, 
+    agentThinking, 
+    routingDecision, 
+    agentFinding, 
+    progress: wsProgress,
+    liveEvents,
+    getRealtimeInvestigation 
+  } = useInvestigationRealtime(investigationId)
 
   useEffect(() => {
     if (!investigationId) return
@@ -59,6 +78,15 @@ export function InvestigationDetail() {
     fetchData()
   }, [investigationId])
 
+  // Merge real-time data with base investigation
+  const realtimeInvestigation = useMemo(() => {
+    if (!baseInvestigation) return null
+    return getRealtimeInvestigation(baseInvestigation)
+  }, [baseInvestigation, getRealtimeInvestigation])
+
+  // Use real-time investigation if available, otherwise fall back to base
+  const displayInvestigation = realtimeInvestigation || baseInvestigation
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -67,7 +95,7 @@ export function InvestigationDetail() {
     )
   }
 
-  if (error || !investigation) {
+  if (error || !displayInvestigation) {
     return (
       <Card className="border-red-200 dark:border-red-800 max-w-2xl mx-auto">
         <CardContent className="pt-6 text-center">
@@ -80,18 +108,54 @@ export function InvestigationDetail() {
     )
   }
 
+// Type guard to narrow the type
+  const investigation = displayInvestigation as InvestigationState | null;
+  if (!investigation) return null;
+
+  // TypeScript knows investigation is non-null here
+  const inv = investigation;
+  const confidenceThreshold = inv.confidence_history.length
+    ? inv.confidence_history[inv.confidence_history.length - 1].threshold
+    : 0.75;
+
+  // Use inv for the rest of the component
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-dark-900 dark:text-dark-100">
-            Investigation {truncate(investigation.investigation_id, 12)}
+            {inv.incident.title || formatIncidentId(inv.incident_id)}
           </h1>
-          <p className="text-dark-500 dark:text-dark-400">Incident: {truncate(investigation.incident_id, 12)}</p>
+          <p className="text-dark-500 dark:text-dark-400" title={inv.incident_id}>Incident: {formatIncidentId(inv.incident_id)}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge className={cn('text-sm', getStatusColor(investigation.investigation_status))}>
-            {investigation.investigation_status.replace('_', ' ')}
+          {/* WebSocket Connection Status */}
+          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-dark-100 dark:bg-dark-800" title={connected ? 'Live updates connected' : 'Live updates disconnected; investigation details can still load'}>
+            {connected ? (
+              <>
+                <Wifi className="h-4 w-4 text-green-500" />
+                <span className="text-xs text-green-600 dark:text-green-400 font-medium">Live</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-4 w-4 text-red-500" />
+                <span className="text-xs text-red-600 dark:text-red-400 font-medium">Offline</span>
+              </>
+            )}
+          </div>
+          
+          {/* Real-time Agent Status */}
+          {agentThinking && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 animate-pulse">
+              <Loader2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+              <span className="text-sm font-medium text-primary-700 dark:text-primary-300">
+                {agentLabels[agentThinking.agent_type as AgentType]}: {agentThinking.status === 'thinking' ? 'Analyzing...' : agentThinking.status === 'started' ? 'Starting...' : 'Completed'}
+              </span>
+            </div>
+          )}
+          
+          <Badge className={cn('text-sm', getStatusColor(inv.investigation_status))}>
+            {inv.investigation_status.replace('_', ' ')}
           </Badge>
           <Button variant="ghost" onClick={() => navigate('/')}>
             Back to List
@@ -99,11 +163,40 @@ export function InvestigationDetail() {
         </div>
       </div>
 
+      <Card className="border-primary-200 dark:border-primary-900">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="text-base">Live investigation activity</CardTitle>
+            <CardDescription>Recent routing, agent, and progress updates</CardDescription>
+          </div>
+          <Badge variant={connected ? 'success' : 'secondary'}>{connected ? 'Connected' : 'Reconnecting'}</Badge>
+        </CardHeader>
+        <CardContent>
+          {liveEvents.length === 0 ? (
+            <p className="text-sm text-dark-500 dark:text-dark-400">
+              {connected ? 'Connected. Waiting for the next investigation step…' : 'Live updates are unavailable. Saved investigation details remain below.'}
+            </p>
+          ) : (
+            <ol className="max-h-64 space-y-3 overflow-y-auto">
+              {liveEvents.map((event, index) => (
+                <li key={`${event.timestamp}-${index}`} className="flex items-start gap-3 border-l-2 border-primary-200 pl-3 dark:border-primary-800">
+                  <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-primary-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-dark-800 dark:text-dark-200">{describeLiveEvent(event)}</p>
+                    <time className="text-xs text-dark-400">{formatDate(event.timestamp)}</time>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Overall Confidence</CardTitle>
-            <CardDescription>Combined confidence from all agents</CardDescription>
+            <CardDescription>Strongest agent finding backed by cited evidence</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center">
@@ -125,21 +218,21 @@ export function InvestigationDetail() {
                     stroke="currentColor"
                     strokeWidth="8"
                     strokeDasharray={364.4}
-                    strokeDashoffset={364.4 - (364.4 * investigation.overall_confidence)}
+                    strokeDashoffset={364.4 - (364.4 * inv.overall_confidence)}
                     strokeLinecap="round"
                     fill="none"
-                    className={cn('transition-all duration-1000', getConfidenceColor(investigation.overall_confidence))}
+                    className={cn('transition-all duration-1000', getConfidenceColor(inv.overall_confidence))}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className={cn('text-3xl font-bold', getConfidenceColor(investigation.overall_confidence))}>
-                    {formatConfidence(investigation.overall_confidence)}
+                  <span className={cn('text-3xl font-bold', getConfidenceColor(inv.overall_confidence))}>
+                    {formatConfidence(inv.overall_confidence)}
                   </span>
                 </div>
               </div>
-              <Progress value={investigation.overall_confidence * 100} className="w-full max-w-xs mx-auto" />
+              <Progress value={inv.overall_confidence * 100} className="w-full max-w-xs mx-auto" />
               <p className="mt-2 text-sm text-dark-500">
-                Threshold: {Math.round(0.75 * 100)}% • {investigation.investigation_status === 'completed' ? 'Threshold met' : 'Below threshold'}
+                Threshold: {Math.round(confidenceThreshold * 100)}% • {inv.investigation_status === 'completed' ? 'Threshold met' : 'Threshold not met'}
               </p>
             </div>
           </CardContent>
@@ -148,19 +241,22 @@ export function InvestigationDetail() {
         <Card>
           <CardHeader>
             <CardTitle>Agents Invoked</CardTitle>
-            <CardDescription>{investigation.agents_invoked.length} of 3 agents</CardDescription>
+            <CardDescription>{inv.agents_invoked.length} of 3 agents</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {['cicd', 'kubernetes', 'observability'].map((agent) => {
-                const invoked = investigation.agents_invoked.includes(agent as AgentType)
-                const confidence = investigation.confidence_scores[agent as AgentType]
+                const invoked = inv.agents_invoked.includes(agent as AgentType)
+                const confidence = inv.confidence_scores[agent as AgentType]
+                const isCurrentlyRunning = agentThinking?.agent_type === agent && agentThinking.status === 'thinking'
                 return (
                   <div
                     key={agent}
                     className={cn(
-                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
-                      invoked
+                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all',
+                      isCurrentlyRunning
+                        ? 'ring-2 ring-primary-500 animate-pulse'
+                        : invoked
                         ? getAgentColor(agent).replace('bg-', 'bg-').replace('text-', 'text-')
                         : 'bg-dark-100 text-dark-400 dark:bg-dark-800 dark:text-dark-500'
                     )}
@@ -168,6 +264,7 @@ export function InvestigationDetail() {
                     <span className={cn(getAgentColor(agent).replace('bg-', 'text-').replace('text-', 'text-'))}>
                       {agentLabels[agent as AgentType]}
                     </span>
+                    {isCurrentlyRunning && <Loader2 className="h-3 w-3 text-primary-500 animate-spin" />}
                     {invoked && confidence && (
                       <span className={cn('font-mono text-xs', getConfidenceColor(confidence))}>
                         {formatConfidence(confidence)}
@@ -177,6 +274,18 @@ export function InvestigationDetail() {
                 )
               })}
             </div>
+            
+            {/* Real-time Progress Bar */}
+            {wsProgress && (
+              <div className="mt-4">
+                <div className="flex justify-between text-xs text-dark-500 mb-1">
+                  <span>Iteration {wsProgress.iteration} of {wsProgress.max_iterations}</span>
+                  <span>{wsProgress.progress_percent}% complete</span>
+                </div>
+                <Progress value={wsProgress.progress_percent} className="h-2" />
+                <p className="text-xs text-dark-500 mt-1">Confidence: {formatConfidence(wsProgress.overall_confidence)}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -186,9 +295,9 @@ export function InvestigationDetail() {
             <CardDescription>Primary investigation direction</CardDescription>
           </CardHeader>
           <CardContent>
-            {investigation.current_hypothesis ? (
+            {inv.current_hypothesis ? (
               <Badge variant="default" className="text-base px-3 py-1">
-                {investigation.current_hypothesis.replace(/_/g, ' ')}
+                {inv.current_hypothesis.replace(/_/g, ' ')}
               </Badge>
             ) : (
               <span className="text-dark-500 dark:text-dark-400">No hypothesis yet</span>
@@ -219,29 +328,74 @@ export function InvestigationDetail() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <p className="text-sm text-dark-500 dark:text-dark-400">Investigation ID</p>
-                    <p className="font-mono text-sm">{investigation.investigation_id}</p>
+                    <p className="font-mono text-sm">{inv.investigation_id}</p>
                   </div>
                   <div>
                     <p className="text-sm text-dark-500 dark:text-dark-400">Incident ID</p>
-                    <p className="font-mono text-sm">{investigation.incident_id}</p>
+                    <p className="font-mono text-sm" title={inv.incident_id}>{formatIncidentId(inv.incident_id)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-dark-500 dark:text-dark-400">Started</p>
-                    <p className="font-mono text-sm">{formatDate(investigation.created_at)}</p>
+                    <p className="font-mono text-sm">{formatDate(inv.created_at)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-dark-500 dark:text-dark-400">Completed</p>
-                    <p className="font-mono text-sm">{investigation.completed_at ? formatDate(investigation.completed_at) : 'In progress'}</p>
+                    <p className="font-mono text-sm">{inv.completed_at ? formatDate(inv.completed_at) : 'In progress'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-dark-500 dark:text-dark-400">Iterations</p>
-                    <p className="font-mono text-sm">{investigation.iteration_count} / {investigation.max_iterations}</p>
+                    <p className="font-mono text-sm">{inv.iteration_count} / {inv.max_iterations}</p>
                   </div>
                   <div>
                     <p className="text-sm text-dark-500 dark:text-dark-400">Evidence Collected</p>
-                    <p className="font-mono text-sm">{investigation.evidence.length}</p>
+                    <p className="font-mono text-sm">{inv.evidence.length}</p>
                   </div>
                 </div>
+                
+                {/* Real-time Routing Decision */}
+                {routingDecision && (
+                  <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg animate-pulse">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Brain className="h-5 w-5 text-blue-500" />
+                      <span className="font-medium text-blue-700 dark:text-blue-300">Routing Decision (Iteration {routingDecision.iteration})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={cn(getAgentColor(routingDecision.selected_agent))}>
+                        {agentLabels[routingDecision.selected_agent as AgentType]}
+                      </Badge>
+                      <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">Selected</span>
+                    </div>
+                    <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">{routingDecision.reasoning}</p>
+                  </div>
+                )}
+              
+                {/* Real-time Agent Finding */}
+                {agentFinding && (
+                  <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+<Badge className={cn(getAgentColor(agentFinding.agent_type as AgentType))}>
+                      {agentLabels[agentFinding.agent_type as AgentType]}
+                    </Badge>
+                      <span className="font-medium text-purple-700 dark:text-purple-300">Agent Finding (Just Completed)</span>
+                    </div>
+                    <div className="grid gap-2 text-sm">
+                      <div>
+                        <span className="text-purple-700 dark:text-purple-300 font-medium">Hypothesis: </span>
+                        <span className="text-purple-600 dark:text-purple-400">{agentFinding.finding.hypothesis.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div>
+                        <span className="text-purple-700 dark:text-purple-300 font-medium">Confidence: </span>
+                        <span className={cn('font-mono', getConfidenceColor(agentFinding.finding.confidence))}>
+                          {formatConfidence(agentFinding.finding.confidence)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-purple-700 dark:text-purple-300 font-medium">Finding: </span>
+                        <span className="text-purple-600 dark:text-purple-400">{truncate(agentFinding.finding.finding, 100)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -250,11 +404,11 @@ export function InvestigationDetail() {
                 <CardTitle>Agent Findings</CardTitle>
               </CardHeader>
               <CardContent>
-                {investigation.agent_findings.length === 0 ? (
+                {inv.agent_findings.length === 0 ? (
                   <p className="text-dark-500 dark:text-dark-400 text-center py-8">No agent findings yet</p>
                 ) : (
                   <div className="space-y-4">
-                    {investigation.agent_findings.map((finding) => (
+                    {inv.agent_findings.map((finding) => (
                       <Card key={finding.finding_id} className="border-l-4" style={{ borderColor: getAgentColor(finding.agent_type).replace('bg-', '').replace('text-', '') }}>
                         <CardContent className="pt-4">
                           <div className="flex items-start justify-between gap-4">
@@ -294,7 +448,7 @@ export function InvestigationDetail() {
         </TabsContent>
 
         <TabsContent value="confidence">
-          <ConfidenceChart confidenceHistory={investigation.confidence_history} />
+          <ConfidenceChart confidenceHistory={inv.confidence_history} />
         </TabsContent>
 
         <TabsContent value="timeline">
@@ -384,11 +538,11 @@ export function InvestigationDetail() {
               <CardDescription>All evidence gathered during investigation</CardDescription>
             </CardHeader>
             <CardContent>
-              {investigation.evidence.length === 0 ? (
+              {inv.evidence.length === 0 ? (
                 <p className="text-dark-500 dark:text-dark-400 text-center py-8">No evidence collected yet</p>
               ) : (
                 <div className="space-y-3">
-                  {investigation.evidence.map((ev) => (
+                  {inv.evidence.map((ev) => (
                     <Card key={ev.evidence_id} className="border-l-4" style={{ borderColor: getAgentColor(ev.agent_type).replace('bg-', '').replace('text-', '') }}>
                       <CardContent className="pt-3 pb-3">
                         <div className="flex items-start justify-between gap-4">
@@ -406,7 +560,7 @@ export function InvestigationDetail() {
                             </div>
                             <p className="text-dark-900 dark:text-dark-100">{ev.description}</p>
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => alert(JSON.stringify(ev.raw_data, null, 2))}>
+                          <Button variant="outline" size="sm" onClick={() => setSelectedEvidence(ev)}>
                             View Raw Data
                           </Button>
                         </div>
@@ -420,41 +574,50 @@ export function InvestigationDetail() {
         </TabsContent>
 
         <TabsContent value="rca">
-          {investigation.root_cause ? (
+          {inv.root_cause ? (
             <div className="space-y-6">
               <Card className="border-l-4 border-red-500">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-red-500" />
-                    Root Cause Analysis
+                    What caused the incident?
                   </CardTitle>
-                  <CardDescription>Final root cause determination with confidence</CardDescription>
+                    <CardDescription>A plain-language explanation based on the evidence collected</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                    <p className="text-dark-900 dark:text-dark-100">{investigation.root_cause.root_cause}</p>
+                    <div className="space-y-2 text-dark-900 dark:text-dark-100">
+                      {inv.root_cause.root_cause.split(/\n+/).filter(Boolean).map((line, index) => {
+                        const section = line.match(/^(What happened|Why it happened|Why it is likely|Why it is unclear|Analogy):\s*(.*)$/i)
+                        return (
+                          <p key={index}>
+                            {section ? <><strong>{section[1]}:</strong> {section[2]}</> : line}
+                          </p>
+                        )
+                      })}
+                    </div>
                   </div>
                   <div className="grid gap-4 md:grid-cols-3">
                     <div>
-                      <p className="text-sm text-dark-500 dark:text-dark-400">Root Cause Type</p>
-                      <p className="font-medium">{investigation.root_cause.root_cause_type.replace(/_/g, ' ')}</p>
+                      <p className="text-sm text-dark-500 dark:text-dark-400">Main cause</p>
+                      <p className="font-medium">{friendlyRcaType(inv.root_cause.root_cause_type)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-dark-500 dark:text-dark-400">Overall Confidence</p>
-                      <p className={cn('font-mono text-lg font-bold', getConfidenceColor(investigation.root_cause.overall_confidence))}>
-                        {formatConfidence(investigation.root_cause.overall_confidence)}
+                      <p className={cn('font-mono text-lg font-bold', getConfidenceColor(inv.root_cause.overall_confidence))}>
+                        {formatConfidence(inv.root_cause.overall_confidence)}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-dark-500 dark:text-dark-400">Agents Consulted</p>
-                      <p className="font-medium">{investigation.root_cause.agents_consulted.length}</p>
+                      <p className="font-medium">{inv.root_cause.agents_consulted.length}</p>
                     </div>
                   </div>
-                  {investigation.root_cause.contributing_factors.length > 0 && (
+                  {inv.root_cause.contributing_factors.length > 0 && (
                     <div>
                       <h4 className="font-medium mb-2">Contributing Factors</h4>
                       <ul className="space-y-1">
-                        {investigation.root_cause.contributing_factors.map((factor, i) => (
+                        {inv.root_cause.contributing_factors.map((factor, i) => (
                           <li key={i} className="flex items-center gap-2 text-sm text-dark-600 dark:text-dark-300">
                             <ChevronRight className="h-4 w-4 text-dark-400" />
                             {factor}
@@ -463,11 +626,11 @@ export function InvestigationDetail() {
                       </ul>
                     </div>
                   )}
-                  {investigation.root_cause.evidence.length > 0 && (
+                  {inv.root_cause.evidence.length > 0 && (
                     <div>
                       <h4 className="font-medium mb-2">Supporting Evidence</h4>
                       <div className="flex flex-wrap gap-2">
-                        {investigation.root_cause.evidence.map((ev, i) => (
+                        {inv.root_cause.evidence.map((ev, i) => (
                           <Badge key={i} variant="outline" className="text-xs">
                             {truncate(ev, 50)}
                           </Badge>
@@ -478,7 +641,7 @@ export function InvestigationDetail() {
                 </CardContent>
               </Card>
 
-              {investigation.remediation && (
+              {inv.remediation && (
                 <Card className="border-l-4 border-green-500">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -489,12 +652,12 @@ export function InvestigationDetail() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <p className="text-dark-900 dark:text-dark-100">{investigation.remediation.recommendation}</p>
+                      <p className="text-dark-900 dark:text-dark-100">{inv.remediation.recommendation}</p>
                     </div>
                     <div>
                       <h4 className="font-medium mb-2">Remediation Steps</h4>
                       <ol className="space-y-2">
-                        {investigation.remediation.steps.map((step, i) => (
+                        {inv.remediation.steps.map((step, i) => (
                           <li key={i} className="flex items-start gap-3 text-dark-600 dark:text-dark-300">
                             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-xs font-medium flex items-center justify-center">
                               {i + 1}
@@ -507,18 +670,18 @@ export function InvestigationDetail() {
                     <div className="grid gap-4 md:grid-cols-3">
                       <div>
                         <p className="text-sm text-dark-500 dark:text-dark-400">Priority</p>
-                        <Badge variant={investigation.remediation.priority === 'high' ? 'destructive' : 'default'}>
-                          {investigation.remediation.priority}
+                        <Badge variant={inv.remediation.priority === 'high' ? 'destructive' : 'default'}>
+                          {inv.remediation.priority}
                         </Badge>
                       </div>
                       <div>
                         <p className="text-sm text-dark-500 dark:text-dark-400">Effort</p>
-                        <Badge variant="secondary">{investigation.remediation.estimated_effort}</Badge>
+                        <Badge variant="secondary">{inv.remediation.estimated_effort}</Badge>
                       </div>
                       <div>
                         <p className="text-sm text-dark-500 dark:text-dark-400">Risk Level</p>
-                        <Badge variant={investigation.remediation.risk_level === 'high' ? 'destructive' : 'secondary'}>
-                          {investigation.remediation.risk_level}
+                        <Badge variant={inv.remediation.risk_level === 'high' ? 'destructive' : 'secondary'}>
+                          {inv.remediation.risk_level}
                         </Badge>
                       </div>
                     </div>
@@ -537,6 +700,154 @@ export function InvestigationDetail() {
           )}
         </TabsContent>
       </Tabs>
+      {selectedEvidence && <RawDataDialog evidence={selectedEvidence} onClose={() => setSelectedEvidence(null)} />}
     </div>
   )
+}
+
+function describeLiveEvent(event: { update_type: string; data: Record<string, any> }): string {
+  const agent = event.data.agent_type
+    ? agentLabels[event.data.agent_type as AgentType] || event.data.agent_type
+    : 'Agent'
+
+  switch (event.update_type) {
+    case 'status_change':
+      return `Investigation status changed to ${String(event.data.status || 'updated').replace(/_/g, ' ')}`
+    case 'progress':
+      return `Iteration ${event.data.iteration} of ${event.data.max_iterations} · confidence ${formatConfidence(event.data.overall_confidence || 0)}`
+    case 'routing_decision': {
+      const selected = agentLabels[event.data.selected_agent as AgentType] || event.data.selected_agent || 'an agent'
+      return `Router selected ${selected}${event.data.reasoning ? ` — ${event.data.reasoning}` : ''}`
+    }
+    case 'agent_thinking':
+      return `${agent} ${event.data.status === 'completed' ? 'finished analyzing' : 'is analyzing'}`
+    case 'agent_finding': {
+      const finding = event.data.finding || {}
+      const hypothesis = finding.hypothesis ? `: ${String(finding.hypothesis).replace(/_/g, ' ')}` : ''
+      return `${agent} submitted a finding${hypothesis}`
+    }
+    default:
+      return event.update_type.replace(/_/g, ' ')
+  }
+}
+
+function friendlyRcaType(type: string): string {
+  const labels: Record<string, string> = {
+    deployment_induced_failure: 'A recent software change',
+    kubernetes_oom: 'The service ran out of memory',
+    traffic_incident: 'A sudden change in incoming requests',
+    configuration_error: 'A problem with the service settings',
+    dependency_issue: 'A problem with a service this one relies on',
+    application_error: 'An error inside the application',
+    multi_layer_failure: 'Problems across several parts of the system',
+    unknown: 'Cause not yet identified',
+  }
+  return labels[type] || type.replace(/_/g, ' ')
+}
+
+function RawDataDialog({ evidence, onClose }: { evidence: Evidence; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  const copyRawData = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(evidence.raw_data, null, 2))
+      setCopied(true)
+    } catch (error) {
+      console.error('Could not copy evidence data', error)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="raw-data-title"
+        className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-dark-200 bg-white shadow-2xl dark:border-dark-700 dark:bg-dark-900"
+        onClick={event => event.stopPropagation()}
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-dark-200 p-5 dark:border-dark-700">
+          <div className="min-w-0">
+            <h2 id="raw-data-title" className="text-lg font-semibold text-dark-900 dark:text-dark-100">
+              Evidence details
+            </h2>
+            <p className="mt-1 text-sm text-dark-500 dark:text-dark-400">{evidence.description}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">{evidence.evidence_type.replace(/_/g, ' ')}</Badge>
+              <Badge variant="outline">{evidence.source}</Badge>
+              <Badge variant="outline">{formatConfidence(evidence.confidence)} confidence</Badge>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" size="sm" onClick={copyRawData}>
+              {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+              {copied ? 'Copied' : 'Copy data'}
+            </Button>
+            <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={onClose} aria-label="Close evidence details">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </header>
+        <div className="overflow-y-auto p-5">
+          <RawDataValue value={evidence.raw_data} />
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function RawDataValue({ value }: { value: unknown }) {
+  if (value === null || value === undefined) {
+    return <span className="text-sm italic text-dark-400">No value</span>
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-sm text-dark-400">No items</span>
+    return (
+      <ol className="space-y-2">
+        {value.map((item, index) => (
+          <li key={index} className="flex gap-3 rounded-lg bg-dark-50 p-3 dark:bg-dark-800/70">
+            <span className="shrink-0 font-mono text-xs text-dark-400">{index + 1}</span>
+            <div className="min-w-0 flex-1"><RawDataValue value={item} /></div>
+          </li>
+        ))}
+      </ol>
+    )
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+    if (entries.length === 0) return <span className="text-sm text-dark-400">No fields</span>
+    return (
+      <dl className="grid gap-3 sm:grid-cols-2">
+        {entries.map(([key, child]) => (
+          <div key={key} className="min-w-0 rounded-lg border border-dark-100 p-3 dark:border-dark-700">
+            <dt className="mb-1 text-xs font-semibold uppercase tracking-wide text-dark-500 dark:text-dark-400">
+              {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ')}
+            </dt>
+            <dd className="min-w-0 text-sm text-dark-800 dark:text-dark-200"><RawDataValue value={child} /></dd>
+          </div>
+        ))}
+      </dl>
+    )
+  }
+
+  if (typeof value === 'string') {
+    return value.includes('\n') || value.length > 240
+      ? <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md bg-dark-100 p-3 font-mono text-xs leading-relaxed dark:bg-dark-950">{value}</pre>
+      : <span className="break-words">{value || '—'}</span>
+  }
+
+  return <span className="font-mono text-sm">{String(value)}</span>
 }

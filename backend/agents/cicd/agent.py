@@ -50,25 +50,25 @@ class CICDAgent:
         if deployment_evidence:
             dep = deployment_evidence[0]
             findings.append(f"Recent deployment detected: {dep.description}")
-            evidence_refs.append(dep.description)
+            evidence_refs.append(dep.evidence_id)
             confidence = max(confidence, 0.7)
 
         if config_evidence:
             for cfg in config_evidence:
                 findings.append(f"Configuration change detected: {cfg.description}")
-                evidence_refs.append(cfg.description)
+                evidence_refs.append(cfg.evidence_id)
                 confidence = max(confidence, 0.85)
 
         if code_evidence:
             for code in code_evidence:
                 findings.append(f"Code change detected: {code.description}")
-                evidence_refs.append(code.description)
+                evidence_refs.append(code.evidence_id)
                 confidence = max(confidence, 0.7)
 
         if dep_evidence:
             for dep in dep_evidence:
                 findings.append(f"Dependency change detected: {dep.description}")
-                evidence_refs.append(dep.description)
+                evidence_refs.append(dep.evidence_id)
                 confidence = max(confidence, 0.75)
 
         if config_evidence and any("memory" in c.description.lower() or "limit" in c.description.lower() for c in config_evidence):

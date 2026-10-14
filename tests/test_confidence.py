@@ -7,25 +7,23 @@ from backend.orchestrator.confidence import (
 )
 
 
-def test_calculate_overall_confidence_multiple():
+def test_calculate_overall_confidence_multiple_uses_strongest_score():
     confidences = {
         AgentType.CICD: 0.8,
         AgentType.KUBERNETES: 0.9,
         AgentType.OBSERVABILITY: 0.7
     }
     overall = calculate_overall_confidence(confidences)
-    expected = 1 - (1-0.8) * (1-0.9) * (1-0.7)
-    assert abs(overall - expected) < 0.001
+    assert overall == 0.9
 
 
-def test_calculate_overall_confidence_two_agents():
+def test_calculate_overall_confidence_two_agents_does_not_accumulate_scores():
     confidences = {
         AgentType.CICD: 0.85,
         AgentType.KUBERNETES: 0.92
     }
     overall = calculate_overall_confidence(confidences)
-    expected = 1 - (1-0.85) * (1-0.92)
-    assert abs(overall - expected) < 0.001
+    assert overall == 0.92
 
 
 def test_calculate_overall_confidence_single():
@@ -48,7 +46,7 @@ def test_calculate_overall_confidence_zero():
 def test_calculate_overall_confidence_high():
     confidences = {AgentType.CICD: 0.95, AgentType.KUBERNETES: 0.98}
     overall = calculate_overall_confidence(confidences)
-    assert overall > 0.99
+    assert overall == 0.98
 
 
 def test_is_confidence_sufficient_above_threshold():

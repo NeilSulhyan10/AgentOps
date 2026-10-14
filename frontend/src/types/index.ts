@@ -129,6 +129,7 @@ export interface InvestigationState {
 export interface InvestigationStatusResponse {
   investigation_id: string;
   incident_id: string;
+  incident_title: string;
   status: InvestigationStatus;
   current_hypothesis: HypothesisType | null;
   overall_confidence: number;

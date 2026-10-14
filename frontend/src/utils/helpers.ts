@@ -22,6 +22,12 @@ export function formatRelativeTime(dateString: string): string {
   }
 }
 
+export function formatIncidentId(incidentId: string): string {
+  const githubRunMatch = incidentId.match(/^github-actions-(.+)$/i)
+  if (githubRunMatch) return `GitHub Actions #${githubRunMatch[1]}`
+  return incidentId
+}
+
 export function getSeverityColor(severity: string): string {
   switch (severity) {
     case 'critical':

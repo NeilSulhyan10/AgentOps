@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     nemotron_model: str = "nemotron-3-ultra"
     nemotron_max_tokens: int = 4096
     nemotron_temperature: float = 0.1
+    llm_trace_enabled: bool = False
+    llm_trace_path: str = "logs/llm_traces.jsonl"
 
     max_iterations: int = 5
     confidence_threshold: float = 0.75

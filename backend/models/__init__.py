@@ -215,6 +215,7 @@ class InvestigationResponse(BaseModel):
 class InvestigationStatusResponse(BaseModel):
     investigation_id: str
     incident_id: str
+    incident_title: str
     status: InvestigationStatus
     current_hypothesis: Optional[HypothesisType]
     overall_confidence: float

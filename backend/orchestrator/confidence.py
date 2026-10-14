@@ -19,12 +19,9 @@ def calculate_overall_confidence(agent_confidences: Dict[AgentType, float]) -> f
     if not agent_confidences:
         return 0.0
 
-    product = 1.0
-    for confidence in agent_confidences.values():
-        product *= (1.0 - confidence)
-
-    overall = 1.0 - product
-    return round(overall, 4)
+    # Model confidence values are not calibrated independent probabilities.
+    # Noisy-OR would inflate confidence as agents are added.
+    return round(max(agent_confidences.values()), 4)
 
 
 def is_confidence_sufficient(overall_confidence: float, threshold: float = DEFAULT_CONFIDENCE_THRESHOLD) -> bool:
@@ -51,7 +48,7 @@ def synthesize_rca(investigation: InvestigationState) -> RootCauseAnalysis:
         return RootCauseAnalysis(
             investigation_id=investigation.investigation_id,
             incident_id=investigation.incident_id,
-            root_cause="Insufficient evidence to determine root cause",
+            root_cause="What happened: We could not identify the cause from the information collected.\nWhy it is unclear: There are not enough agent findings to confirm what failed.",
             root_cause_type=HypothesisType.UNKNOWN,
             overall_confidence=investigation.overall_confidence,
             agents_consulted=investigation.agents_invoked
@@ -64,7 +61,7 @@ def synthesize_rca(investigation: InvestigationState) -> RootCauseAnalysis:
         return RootCauseAnalysis(
             investigation_id=investigation.investigation_id,
             incident_id=investigation.incident_id,
-            root_cause="Insufficient evidence to determine root cause",
+            root_cause="What happened: We could not identify the cause from the information collected.\nWhy it is unclear: There are not enough valid findings to confirm what failed.",
             root_cause_type=HypothesisType.UNKNOWN,
             overall_confidence=investigation.overall_confidence,
             agents_consulted=investigation.agents_invoked
@@ -149,54 +146,57 @@ def synthesize_rca(investigation: InvestigationState) -> RootCauseAnalysis:
 
 def _generate_root_cause_text(findings: List[AgentFinding], incident) -> str:
     if not findings:
-        return "Unable to determine root cause - no agent findings available."
+        return "What happened: We could not identify the cause from the information collected.\nWhy it is unclear: No investigation findings were available."
 
     # Filter to only AgentFinding objects for max calculation
     valid_findings = [f for f in findings if isinstance(f, AgentFinding)]
     if not valid_findings:
-        return "Unable to determine root cause - no valid agent findings available."
+        return "What happened: We could not identify the cause from the information collected.\nWhy it is unclear: No usable investigation findings were available."
 
     primary = max(valid_findings, key=lambda f: f.confidence)
 
     templates = {
         HypothesisType.DEPLOYMENT_INDUCED_FAILURE: (
-            "Recent deployment caused the incident. "
-            "{details}"
+            "A recent software release appears to have caused the problem. "
+            "The evidence points to this: {details}"
         ),
         HypothesisType.KUBERNETES_OOM: (
-            "Kubernetes pod was OOMKilled due to memory exhaustion. "
-            "{details}"
+            "The service appears to have run out of memory and stopped. "
+            "The evidence points to this: {details}"
         ),
         HypothesisType.APPLICATION_ERROR: (
-            "Application error detected in the service. "
-            "{details}"
+            "The application appears to have hit an error. "
+            "The evidence points to this: {details}"
         ),
         HypothesisType.CONFIGURATION_ERROR: (
-            "Configuration change caused the incident. "
-            "{details}"
+            "A change to the service's settings appears to have caused the problem. "
+            "The evidence points to this: {details}"
         ),
         HypothesisType.DEPENDENCY_ISSUE: (
-            "External dependency failure caused the incident. "
-            "{details}"
+            "A service that this application relies on appears to have failed. "
+            "The evidence points to this: {details}"
         ),
         HypothesisType.TRAFFIC_INCIDENT: (
-            "Traffic spike or anomaly caused service degradation. "
-            "{details}"
+            "A sudden change in incoming requests appears to have slowed the service. "
+            "The evidence points to this: {details}"
         ),
         HypothesisType.MULTI_LAYER_FAILURE: (
-            "Multi-layer failure detected across multiple components. "
-            "{details}"
+            "The problem appears to involve more than one part of the system. "
+            "The evidence points to this: {details}"
         )
     }
 
-    template = templates.get(primary.hypothesis, "{details}")
+    template = templates.get(
+        primary.hypothesis,
+        "We could not confirm the exact cause. The strongest clue so far is: {details}"
+    )
     details = primary.finding
 
     if len(findings) > 1:
         other_findings = [f for f in findings if isinstance(f, AgentFinding) and f != primary]
         details += f" Additional factors: {'; '.join(f.finding for f in other_findings)}"
 
-    return template.format(details=details)
+    return f"What happened: {template.format(details=details)}\nWhy it is likely: This is the strongest explanation supported by the current findings."
 
 
 def generate_remediation(rca: RootCauseAnalysis) -> RemediationRecommendation:

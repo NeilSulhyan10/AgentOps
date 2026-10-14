@@ -4,27 +4,26 @@ import { Shield, Zap, Brain, Sun, Moon, Monitor } from 'lucide-react'
 import { Button } from './ui/Button'
 
 export function Header() {
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system')
-
-  useEffect(() => {
-    const stored = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null
-    if (stored) {
-      setTheme(stored)
-    }
-  }, [])
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
+    const stored = localStorage.getItem('theme')
+    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+  })
 
   useEffect(() => {
     const root = window.document.documentElement
     root.classList.remove('light', 'dark')
-    
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      root.classList.add(systemTheme)
-    } else {
-      root.classList.add(theme)
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const applyTheme = () => {
+      const activeTheme = theme === 'system' ? (media.matches ? 'dark' : 'light') : theme
+      root.classList.remove('light', 'dark')
+      root.classList.add(activeTheme)
+      root.style.colorScheme = activeTheme
     }
-    
+    applyTheme()
+    if (theme === 'system') media.addEventListener('change', applyTheme)
     localStorage.setItem('theme', theme)
+    return () => media.removeEventListener('change', applyTheme)
   }, [theme])
 
   const cycleTheme = () => {
@@ -80,6 +79,7 @@ export function Header() {
               onClick={cycleTheme}
               className="relative"
               title={`Theme: ${themeLabels[theme]} (click to cycle)`}
+              aria-label={`Theme: ${themeLabels[theme]}. Click to change theme.`}
             >
               <ThemeIcon className="h-4 w-4" />
             </Button>

@@ -53,26 +53,26 @@ class KubernetesAgent:
             code = exc.raw_data.get("exit_code", 0)
             if code == 137:
                 findings.append(f"Pod OOMKilled (exit code 137): {exc.description}")
-                evidence_refs.append(exc.description)
+                evidence_refs.append(exc.evidence_id)
                 oom_killed = True
                 confidence = max(confidence, 0.95)
             elif code != 0:
                 findings.append(f"Pod exited with code {code}: {exc.description}")
-                evidence_refs.append(exc.description)
+                evidence_refs.append(exc.evidence_id)
                 confidence = max(confidence, 0.8)
 
         for rst in restart_evidence:
             count = rst.raw_data.get("restart_count", 0)
             if count > 5:
                 findings.append(f"High restart count ({count}): {rst.description}")
-                evidence_refs.append(rst.description)
+                evidence_refs.append(rst.evidence_id)
                 confidence = max(confidence, 0.85)
 
         for evt in event_evidence:
             reason = evt.raw_data.get("reason", "")
             if reason in ["OOMKilling", "OutOfMemory", "Killing"]:
                 findings.append(f"OOM event detected: {evt.description}")
-                evidence_refs.append(evt.description)
+                evidence_refs.append(evt.evidence_id)
                 oom_killed = True
                 confidence = max(confidence, 0.95)
 
@@ -80,7 +80,7 @@ class KubernetesAgent:
             usage_val = usage.raw_data.get("usage", "")
             limit_val = usage.raw_data.get("limit", "")
             findings.append(f"Resource usage near limit: {usage.description}")
-            evidence_refs.append(usage.description)
+            evidence_refs.append(usage.evidence_id)
             if "Mi" in str(usage_val) and "Gi" in str(limit_val):
                 try:
                     usage_num = float(usage_val.replace("Mi", ""))

@@ -27,6 +27,13 @@ class DataLoader:
                 return json.load(f)
         return {}
 
+    def load_cicd_data(self, incident_id: str) -> Dict[str, Any]:
+        cicd_file = self.data_dir / "cicd" / f"{incident_id}.json"
+        if cicd_file.exists():
+            with open(cicd_file) as f:
+                return json.load(f)
+        return {}
+
     def load_observability_data(self, incident_id: str) -> Dict[str, Any]:
         obs_file = self.data_dir / "observability" / f"{incident_id}.json"
         if obs_file.exists():
@@ -139,6 +146,62 @@ async def get_cicd_evidence_from_github(incident: Incident) -> List["Evidence"]:
     except Exception as e:
         logger.error(f"Unexpected error fetching GitHub Actions data: {e}")
         raise
+    
+    return evidence
+
+
+def get_cicd_evidence_from_fixture(incident: Incident) -> List["Evidence"]:
+    """Load CI/CD evidence from local fixture files."""
+    data = data_loader.load_cicd_data(incident.incident_id)
+    evidence = []
+    
+    if "deployments" in data:
+        for dep in data["deployments"]:
+            evidence.append(Evidence(
+                investigation_id="",
+                agent_type=AgentType.CICD,
+                evidence_type=EvidenceType.DEPLOYMENT,
+                description=f"Deployment {dep.get('deployment_id', 'unknown')} at {dep.get('timestamp', 'unknown')}",
+                raw_data=dep,
+                confidence=0.8,
+                source="cicd_fixture"
+            ))
+    
+    if "code_changes" in data:
+        for change in data["code_changes"]:
+            evidence.append(Evidence(
+                investigation_id="",
+                agent_type=AgentType.CICD,
+                evidence_type=EvidenceType.CODE_CHANGE,
+                description=f"Code change in {change.get('file', 'unknown')}: {change.get('description', 'unknown')}",
+                raw_data=change,
+                confidence=0.7,
+                source="cicd_fixture"
+            ))
+    
+    if "config_changes" in data:
+        for change in data["config_changes"]:
+            evidence.append(Evidence(
+                investigation_id="",
+                agent_type=AgentType.CICD,
+                evidence_type=EvidenceType.CONFIG_CHANGE,
+                description=f"Config change: {change.get('key', 'unknown')} = {change.get('new_value', 'unknown')}",
+                raw_data=change,
+                confidence=0.85,
+                source="cicd_fixture"
+            ))
+    
+    if "dependency_changes" in data:
+        for dep in data["dependency_changes"]:
+            evidence.append(Evidence(
+                investigation_id="",
+                agent_type=AgentType.CICD,
+                evidence_type=EvidenceType.DEPENDENCY_CHANGE,
+                description=f"Dependency change: {dep.get('name', 'unknown')} {dep.get('old_version', '?')} -> {dep.get('new_version', '?')}",
+                raw_data=dep,
+                confidence=0.75,
+                source="cicd_fixture"
+            ))
     
     return evidence
 
@@ -277,18 +340,23 @@ def get_observability_evidence(incident: Incident) -> List[Evidence]:
 
 def get_cicd_evidence(incident: Incident) -> List["Evidence"]:
     """
-    Sync wrapper to get CI/CD evidence from GitHub Actions.
-    
-    This is a synchronous wrapper that runs the async GitHub Actions fetch.
-    Used by the LangGraph orchestrator which runs synchronously.
+    Get CI/CD evidence, trying local fixtures first, then falling back to GitHub API.
     """
+    # First try to load from local fixture
+    fixture_evidence = get_cicd_evidence_from_fixture(incident)
+    if fixture_evidence:
+        return fixture_evidence
+    
+    # Fall back to GitHub API
     import asyncio
     try:
-        # Try to get existing event loop
         loop = asyncio.get_event_loop()
     except RuntimeError:
-        # No event loop, create new one
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     
-    return loop.run_until_complete(get_cicd_evidence_from_github(incident))
+    try:
+        return loop.run_until_complete(get_cicd_evidence_from_github(incident))
+    except Exception as e:
+        logger.warning(f"GitHub API fetch failed, returning empty evidence: {e}")
+        return []

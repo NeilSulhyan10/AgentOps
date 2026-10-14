@@ -57,6 +57,24 @@ docker-compose up -d
 # MongoDB: localhost:27017
 ```
 
+### Inspecting Nemotron Requests
+
+To save the full system prompt, investigation context/evidence, and raw Nemotron response for each call, add these settings to `.env`:
+
+```env
+LLM_PROVIDER=nemotron
+LLM_TRACE_ENABLED=true
+LLM_TRACE_PATH=logs/llm_traces.jsonl
+```
+
+Restart the backend, then watch the JSONL trace file from the project root:
+
+```bash
+tail -f logs/llm_traces.jsonl
+```
+
+Each line is one call and includes the task/agent, prompt, response, token count, duration, and any provider error. Tracing is disabled by default. The trace file can contain incident and infrastructure data, so keep it local and avoid committing or sharing it without review.
+
 ## Development Phases
 
 1. **Phase 1** - Project Foundation (this phase)

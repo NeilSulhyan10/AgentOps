@@ -453,6 +453,10 @@ class MongoStateManager:
             await ConfidenceEntryDoc.find({"investigation_id": investigation_id}).delete()
             await RootCauseAnalysisDoc.find({"investigation_id": investigation_id}).delete()
             await RemediationDoc.find({"investigation_id": investigation_id}).delete()
+            if not await InvestigationDoc.find_one({"incident_id": doc.incident_id}):
+                incident_doc = await IncidentDoc.find_one({"incident_id": doc.incident_id})
+                if incident_doc:
+                    await incident_doc.delete()
             return True
         return False
 
@@ -464,6 +468,42 @@ class MongoStateManager:
         states = []
         for doc in docs:
             states.append(await self._doc_to_state(doc))
+        return states
+
+    async def list_states_lite(self, status: Optional[InvestigationStatus] = None) -> List[InvestigationState]:
+        """Lightweight list that doesn't load related data (evidence, findings, decisions, etc.)."""
+        query = InvestigationDoc.find()
+        if status:
+            query = query.find({"investigation_status": status})
+        docs = await query.sort(-InvestigationDoc.created_at).to_list()
+        states = []
+        for doc in docs:
+            incident_doc = await IncidentDoc.find_one({"incident_id": doc.incident_id})
+            incident = self._doc_to_incident(incident_doc) if incident_doc else None
+            
+            state = InvestigationState(
+                investigation_id=doc.investigation_id,
+                incident=incident,
+                incident_id=doc.incident_id,
+                current_hypothesis=doc.current_hypothesis,
+                evidence=[],  # Empty for lite version
+                agent_findings=[],  # Empty for lite version
+                agents_invoked=doc.agents_invoked,
+                confidence_scores=doc.confidence_scores,
+                overall_confidence=doc.overall_confidence,
+                iteration_count=doc.iteration_count,
+                max_iterations=doc.max_iterations,
+                evidence_gaps=doc.evidence_gaps,
+                investigation_status=doc.investigation_status,
+                root_cause=None,  # None for lite version
+                remediation=None,  # None for lite version
+                routing_decisions=[],  # Empty for lite version
+                confidence_history=[],  # Empty for lite version
+                created_at=doc.created_at,
+                updated_at=doc.updated_at,
+                completed_at=doc.completed_at,
+            )
+            states.append(state)
         return states
 
 

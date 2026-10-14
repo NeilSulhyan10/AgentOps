@@ -1,7 +1,6 @@
 from typing import Dict, List, Any, Optional, TypedDict, Annotated
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-import operator
 import asyncio
 
 from backend.models import (
@@ -18,9 +17,10 @@ from backend.models import (
     InvestigationStatus,
     EvidenceType
 )
-from backend.llm import get_llm_provider, LLMRequest
-from backend.llm.schemas import RoutingDecisionResponse, AgentAnalysisResponse, RCAResponse, RemediationResponse
 from backend.tools.data_access import get_cicd_evidence, get_kubernetes_evidence, get_observability_evidence
+from backend.runtime import get_agent_runner
+from backend.orchestrator.router import select_next_agent
+from backend.events import broadcast_agent_thinking
 
 
 class GraphState(TypedDict):
@@ -91,7 +91,6 @@ def load_evidence(state: GraphState) -> GraphState:
     import logging
     logging.getLogger(__name__).info(f"load_evidence: investigation {investigation.investigation_id}, existing_evidence={len(investigation.evidence)}")
     
-    # Check if GitHub Actions evidence was already provided (by monitor)
     has_github_evidence = any(
         ev.source in ("github_actions", "github_actions_job_logs") 
         for ev in investigation.evidence
@@ -101,7 +100,6 @@ def load_evidence(state: GraphState) -> GraphState:
         cicd_evidence = get_cicd_evidence(investigation.incident)
         investigation.evidence.extend(cicd_evidence)
     
-    # Always load kubernetes and observability evidence from fixtures
     k8s_evidence = get_kubernetes_evidence(investigation.incident)
     obs_evidence = get_observability_evidence(investigation.incident)
     
@@ -118,7 +116,7 @@ def _format_evidence_summary(evidence: list) -> str:
         return "No evidence collected yet."
     lines = []
     for ev in evidence[-10:]:
-        lines.append(f"  - [{ev.agent_type}] {ev.evidence_type}: {ev.description[:100]}")
+        lines.append(f"  - evidence_id={ev.evidence_id} [{ev.agent_type}] {ev.evidence_type}: {ev.description[:200]}")
     return "\n".join(lines)
 
 
@@ -148,47 +146,26 @@ async def adaptive_router(state: GraphState) -> GraphState:
     if not available_agents:
         available_agents = list(AgentType)
 
-    llm = get_llm_provider()
-    prompt = f"""ROUTE: Select the next specialist agent to investigate.
+    runner = await get_agent_runner()
+    
+    evidence_summary = _format_evidence_summary(investigation.evidence)
+    findings_summary = _format_findings_summary(investigation.agent_findings)
+    
+    selected_agent, reasoning = await runner.run_router_agent(
+        incident=investigation.incident,
+        current_hypothesis=current_hypothesis,
+        evidence_gaps=evidence_gaps,
+        agents_invoked=agents_invoked,
+        available_agents=available_agents,
+        evidence_summary=evidence_summary,
+        findings_summary=findings_summary
+    )
 
-Incident: {investigation.incident.title} - {investigation.incident.description}
-Service: {investigation.incident.service_name}
-Namespace: {investigation.incident.namespace}
-
-Current hypothesis: {current_hypothesis.value if current_hypothesis else 'UNKNOWN'}
-Evidence gaps: {', '.join(evidence_gaps) if evidence_gaps else 'None'}
-Agents already invoked: {[a.value for a in agents_invoked] if agents_invoked else 'None'}
-Available agents: {[a.value for a in available_agents]}
-
-Evidence collected so far:
-{_format_evidence_summary(investigation.evidence)}
-
-Agent findings so far:
-{_format_findings_summary(investigation.agent_findings)}
-
-Select the next agent to investigate based on the evidence gaps and current hypothesis.
-Respond with JSON only in this exact format:
-{{
-  "selected_agent": "cicd|kubernetes|observability",
-  "reasoning": "your reasoning here",
-  "confidence": 0.85
-}}
-"""
-
-    routing_response = await get_llm_provider().generate(LLMRequest(
-        prompt=prompt,
-        system_prompt="You are an expert DevOps incident investigator. Select the most relevant specialist agent to investigate next based on the evidence gaps and current hypothesis. Respond with JSON only.",
-        temperature=0.1,
-        max_tokens=1024
-    ))
-
-    try:
-        routing_data = RoutingDecisionResponse.model_validate_json(routing_response.content)
-        selected_agent = routing_data.selected_agent
-        reasoning = routing_data.reasoning
-    except Exception:
-        selected_agent = available_agents[0] if available_agents else AgentType.CICD
-        reasoning = "Fallback to deterministic routing"
+    if selected_agent not in available_agents:
+        selected_agent, _ = select_next_agent(investigation)
+        if selected_agent not in available_agents:
+            selected_agent = available_agents[0]
+        reasoning = f"Router selected an unavailable agent; deterministic fallback selected {selected_agent}"
 
     decision = RoutingDecision(
         investigation_id=investigation.investigation_id,
@@ -213,118 +190,66 @@ Respond with JSON only in this exact format:
     }
 
 
-def _format_evidence_summary(evidence: list) -> str:
-    if not evidence:
-        return "No evidence collected yet."
-    lines = []
-    for ev in evidence[-10:]:
-        lines.append(f"  - [{ev.agent_type}] {ev.evidence_type}: {ev.description[:100]}")
-    return "\n".join(lines)
-
-
-def _format_findings_summary(findings: list) -> str:
-    if not findings:
-        return "No agent findings yet."
-    lines = []
-    for f in findings[-5:]:
-        lines.append(f"  - [{f.agent_type}] {f.hypothesis}: {f.finding[:100]} (confidence: {f.confidence:.2f})")
-    return "\n".join(lines)
-
-
 async def invoke_cicd_agent(state: GraphState) -> GraphState:
     investigation = state["investigation"]
-    return await _invoke_agent_async(investigation, AgentType.CICD)
+    return await _invoke_analysis_agent(investigation, "cicd_analyzer", AgentType.CICD)
 
 
 async def invoke_kubernetes_agent(state: GraphState) -> GraphState:
     investigation = state["investigation"]
-    return await _invoke_agent_async(investigation, AgentType.KUBERNETES)
+    return await _invoke_analysis_agent(investigation, "kubernetes_analyzer", AgentType.KUBERNETES)
 
 
 async def invoke_observability_agent(state: GraphState) -> GraphState:
     investigation = state["investigation"]
-    return await _invoke_agent_async(investigation, AgentType.OBSERVABILITY)
+    return await _invoke_analysis_agent(investigation, "observability_analyzer", AgentType.OBSERVABILITY)
 
 
-async def _invoke_agent_async(investigation: InvestigationState, agent_type: AgentType) -> GraphState:
-    from backend.agents.cicd.agent import CICDAgent
-    from backend.agents.kubernetes.agent import KubernetesAgent
-    from backend.agents.observability.agent import ObservabilityAgent
-    from backend.llm.schemas import AgentAnalysisResponse
+async def _invoke_analysis_agent(investigation: InvestigationState, agent_name: str, agent_type: AgentType) -> GraphState:
     import logging
+    logging.getLogger(__name__).info(f"_invoke_analysis_agent: investigation {investigation.investigation_id}, agent_name={agent_name}")
 
-    agents = {
-        AgentType.CICD: CICDAgent(),
-        AgentType.KUBERNETES: KubernetesAgent(),
-        AgentType.OBSERVABILITY: ObservabilityAgent()
-    }
-
-    agent = agents[agent_type]
-    logging.getLogger(__name__).info(f"_invoke_agent_async: investigation {investigation.investigation_id}, agent_type={agent_type}")
-
-    llm = get_llm_provider()
-    prompt = f"""ANALYZE: Agent {agent_type.value} investigating incident.
-
-Incident: {investigation.incident.title} - {investigation.incident.description}
-Service: {investigation.incident.service_name}
-Namespace: {investigation.incident.namespace}
-
-Current hypothesis: {investigation.current_hypothesis.value if investigation.current_hypothesis else 'UNKNOWN'}
-
-Evidence available:
-{_format_evidence_summary(investigation.evidence)}
-
-Previous findings:
-{_format_findings_summary(investigation.agent_findings)}
-
-Analyze the evidence and provide your finding, hypothesis, evidence references, confidence, and reasoning.
-Respond with JSON only in this exact format:
-{{
-  "finding": "your finding here",
-  "hypothesis": "deployment_induced_failure|kubernetes_oom|traffic_incident|configuration_error|dependency_issue|unknown",
-  "evidence": ["evidence1", "evidence2"],
-  "confidence": 0.85,
-  "reasoning": "your reasoning here"
-}}
-"""
-
-    analysis_response = await llm.generate(LLMRequest(
-        prompt=prompt,
-        system_prompt=f"You are a {agent_type.value} specialist investigating a DevOps incident. Analyze the evidence and provide a structured finding. Respond with JSON only.",
-        temperature=0.1,
-        max_tokens=2048
-    ))
-
+    runner = await get_agent_runner()
+    
+    await broadcast_agent_thinking(investigation.investigation_id, agent_type.value, "started")
     try:
-        analysis_data = AgentAnalysisResponse.model_validate_json(analysis_response.content)
-        finding = AgentFinding(
-            investigation_id=investigation.investigation_id,
-            agent_type=agent_type,
-            hypothesis=analysis_data.hypothesis,
-            finding=analysis_data.finding,
-            evidence=analysis_data.evidence,
-            confidence=analysis_data.confidence,
-            reasoning=analysis_data.reasoning,
-            timestamp=datetime.utcnow(),
-            iteration=investigation.iteration_count
+        finding = await runner.run_analysis_agent(
+            agent_name=agent_name,
+            incident=investigation.incident,
+            evidence=investigation.evidence,
+            previous_findings=investigation.agent_findings
         )
     except Exception:
-        # Fallback to deterministic agent
-        agent = {
-            AgentType.CICD: CICDAgent(),
-            AgentType.KUBERNETES: KubernetesAgent(),
-            AgentType.OBSERVABILITY: ObservabilityAgent()
-        }[agent_type]
-        finding = agent.investigate(investigation.incident, investigation.evidence)
-
+        await broadcast_agent_thinking(investigation.investigation_id, agent_type.value, "failed")
+        raise
+    
+    finding.investigation_id = investigation.investigation_id
+    finding.iteration = investigation.iteration_count
+    
     investigation.agent_findings.append(finding)
     investigation.agents_invoked.append(agent_type)
-    investigation.confidence_scores[agent_type] = finding.confidence
     investigation.updated_at = investigation.updated_at
-    logging.getLogger(__name__).info(f"_invoke_agent_async: investigation {investigation.investigation_id}, agent_type={agent_type}, finding={finding.finding[:100]}")
+    logging.getLogger(__name__).info(f"_invoke_analysis_agent: investigation {investigation.investigation_id}, agent_type={agent_type}, finding={finding.finding[:100]}")
 
-    if finding.evidence:
-        investigation.evidence_gaps = [g for g in investigation.evidence_gaps if g not in finding.evidence]
+    matching_evidence = [item for item in investigation.evidence if item.evidence_id in finding.evidence]
+    investigation.confidence_scores[agent_type] = finding.confidence if matching_evidence else 0.0
+    gap_evidence_types = {
+        "deployment_details": {EvidenceType.DEPLOYMENT, EvidenceType.CODE_CHANGE, EvidenceType.JOB_FAILURE},
+        "configuration_changes": {EvidenceType.CONFIG_CHANGE},
+        "pod_memory_status": {EvidenceType.POD_EXIT_CODE, EvidenceType.RESOURCE_USAGE, EvidenceType.RESOURCE_LIMIT, EvidenceType.POD_EVENT},
+        "pod_restart_pattern": {EvidenceType.POD_RESTART_COUNT, EvidenceType.POD_EVENT},
+        "resource_pressure": {EvidenceType.RESOURCE_USAGE, EvidenceType.RESOURCE_LIMIT},
+        "observability_metrics": {EvidenceType.LATENCY, EvidenceType.ERROR_RATE},
+        "error_patterns": {EvidenceType.LOG, EvidenceType.STACK_TRACE, EvidenceType.ERROR_STATUS},
+        "trace_analysis": {EvidenceType.TRACE, EvidenceType.SPAN_DURATION},
+    }
+    resolved_gaps = {
+        gap for gap in investigation.evidence_gaps
+        if gap in gap_evidence_types
+        and any(item.evidence_type in gap_evidence_types[gap] for item in matching_evidence)
+    }
+    investigation.evidence_gaps = [gap for gap in investigation.evidence_gaps if gap not in resolved_gaps]
+    await broadcast_agent_thinking(investigation.investigation_id, agent_type.value, "completed")
 
     return {"investigation": investigation, "next_action": "evaluate"}
 
@@ -336,22 +261,29 @@ def evaluate_evidence(state: GraphState) -> GraphState:
 
 def _evaluate_evidence(investigation: InvestigationState) -> GraphState:
     from backend.orchestrator.confidence import calculate_overall_confidence
+    from backend.config import settings
 
-    overall_confidence = calculate_overall_confidence(investigation.confidence_scores)
+    evidence_ids = {item.evidence_id for item in investigation.evidence}
+    grounded_confidences = {
+        finding.agent_type: finding.confidence
+        for finding in investigation.agent_findings
+        if finding.evidence and any(reference in evidence_ids for reference in finding.evidence)
+    }
+    overall_confidence = calculate_overall_confidence(grounded_confidences)
     investigation.overall_confidence = overall_confidence
 
     entry = ConfidenceEntry(
         investigation_id=investigation.investigation_id,
         iteration=investigation.iteration_count,
-        agent_confidences=investigation.confidence_scores.copy(),
+        agent_confidences=grounded_confidences.copy(),
         overall_confidence=overall_confidence,
-        threshold=0.75,
-        is_sufficient=overall_confidence >= 0.75
+        threshold=settings.confidence_threshold,
+        is_sufficient=overall_confidence >= settings.confidence_threshold
     )
     investigation.confidence_history.append(entry)
     investigation.updated_at = investigation.updated_at
 
-    if overall_confidence >= 0.75:
+    if overall_confidence >= settings.confidence_threshold:
         investigation.investigation_status = InvestigationStatus.COMPLETED
         return {"investigation": investigation, "next_action": "generate_rca", "should_continue": False}
     elif investigation.iteration_count >= investigation.max_iterations:
@@ -367,96 +299,34 @@ async def generate_rca(state: GraphState) -> GraphState:
 
 
 async def _generate_rca(investigation: InvestigationState) -> GraphState:
-    llm = get_llm_provider()
-
-    prompt = f"""RCA: Synthesize root cause analysis from investigation findings.
-
-Incident: {investigation.incident.title} - {investigation.incident.description}
-Service: {investigation.incident.service_name}
-Namespace: {investigation.incident.namespace}
-
-Agent findings:
-{_format_findings_summary(investigation.agent_findings)}
-
-Evidence collected:
-{_format_evidence_summary(investigation.evidence)}
-
-Routing decisions:
-{_format_routing_summary(investigation.routing_decisions)}
-
-Confidence history:
-{_format_confidence_history(investigation.confidence_history)}
-
-Synthesize a root cause analysis with root cause, root cause type, contributing factors, confidence, and investigation timeline.
-Respond with JSON only in this exact format:
-{{
-  "root_cause": "your root cause description here",
-  "root_cause_type": "deployment_induced_failure|kubernetes_oom|traffic_incident|configuration_error|dependency_issue|unknown",
-  "contributing_factors": ["factor1", "factor2"],
-  "confidence": 0.85
-}}
-"""
-
-    rca_response = await get_llm_provider().generate(LLMRequest(
-        prompt=prompt,
-        system_prompt="You are an expert DevOps incident investigator. Synthesize a comprehensive root cause analysis from the investigation findings. Respond with JSON only.",
-        temperature=0.1,
-        max_tokens=2048
-    ))
-
-    try:
-        rca_data = RCAResponse.model_validate_json(rca_response.content)
-        rca = RootCauseAnalysis(
-            investigation_id=investigation.investigation_id,
-            incident_id=investigation.incident_id,
-            root_cause=rca_data.root_cause,
-            root_cause_type=rca_data.root_cause_type,
-            contributing_factors=rca_data.contributing_factors,
-            overall_confidence=rca_data.confidence
-        )
-    except Exception:
-        # Fallback to deterministic RCA
-        from backend.orchestrator.confidence import synthesize_rca
-        rca = synthesize_rca(investigation)
-
+    runner = await get_agent_runner()
+    
+    rca = await runner.run_rca_agent(
+        incident=investigation.incident,
+        agent_findings=investigation.agent_findings,
+        evidence=investigation.evidence,
+        routing_decisions=investigation.routing_decisions,
+        confidence_history=investigation.confidence_history
+    )
+    
+    rca.investigation_id = investigation.investigation_id
     investigation.root_cause = rca
 
-    # Generate remediation
-    remediation_prompt = f"""REMEDIATION: Generate remediation plan for root cause.
-
-Root cause: {investigation.root_cause.root_cause if investigation.root_cause else 'Unknown'}
-Root cause type: {investigation.root_cause.root_cause_type if investigation.root_cause else 'unknown'}
-Confidence: {investigation.overall_confidence:.2f}
-
-Generate a remediation recommendation with steps, priority, effort, and risk level.
-Respond with JSON only in this exact format:
-{{
-  "recommendation": "your recommendation here",
-  "steps": ["step1", "step2"],
-  "priority": "high|medium|low",
-  "estimated_effort": "low|medium|high",
-  "risk_level": "low|medium|high"
-}}
-"""
-
-    try:
-        remediation_data = RemediationResponse.model_validate_json(remediation_response.content)
-        remediation = RemediationRecommendation(
-            investigation_id=investigation.investigation_id,
-            rca_id=investigation.root_cause.rca_id if investigation.root_cause else "",
-            recommendation=remediation_data.recommendation,
-            steps=remediation_data.steps,
-            priority=remediation_data.priority,
-            estimated_effort=remediation_data.estimated_effort,
-            risk_level=remediation_data.risk_level
-        )
-    except Exception:
-        from backend.orchestrator.confidence import generate_remediation
-        remediation = generate_remediation(investigation.root_cause)
-
+    remediation = await runner.run_remediation_agent(
+        root_cause=rca.root_cause if rca else "Unknown",
+        root_cause_type=rca.root_cause_type if rca else HypothesisType.UNKNOWN,
+        confidence=investigation.overall_confidence
+    )
+    
+    remediation.investigation_id = investigation.investigation_id
+    remediation.rca_id = rca.rca_id if rca else ""
     investigation.remediation = remediation
 
-    investigation.investigation_status = InvestigationStatus.COMPLETED
+    if investigation.investigation_status not in (
+        InvestigationStatus.MAX_ITERATIONS_REACHED,
+        InvestigationStatus.INSUFFICIENT_EVIDENCE,
+    ):
+        investigation.investigation_status = InvestigationStatus.COMPLETED
     investigation.completed_at = investigation.updated_at
     investigation.updated_at = investigation.updated_at
 

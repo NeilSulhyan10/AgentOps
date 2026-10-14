@@ -42,6 +42,10 @@ export const incidentApi = {
     const response = await api.get<InvestigationStatusResponse>(`/api/incidents/${incidentId}`);
     return response.data;
   },
+
+  deleteInvestigation: async (investigationId: string): Promise<void> => {
+    await api.delete(`/api/investigations/${investigationId}`);
+  },
 };
 
 export const investigationApi = {

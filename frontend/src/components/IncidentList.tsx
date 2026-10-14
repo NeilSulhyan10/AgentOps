@@ -5,8 +5,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/
 import { Badge } from './ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/Table'
 import { Button } from './ui/Button'
-import { formatRelativeTime, truncate } from '../utils/helpers'
-import { AlertTriangle, Search, Plus } from 'lucide-react'
+import { formatIncidentId, formatRelativeTime, truncate } from '../utils/helpers'
+import { AlertTriangle, Search, Plus, Activity, CheckCircle2, Gauge, ListChecks, Eye, Trash2, Loader2, X } from 'lucide-react'
 import { cn } from '../utils/helpers'
 import { useNavigate } from 'react-router-dom'
 
@@ -17,12 +17,14 @@ export function IncidentList() {
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<InvestigationStatus | 'all'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<InvestigationStatusResponse | null>(null)
 
   const fetchIncidents = async () => {
     try {
       setLoading(true)
-      const status = statusFilter === 'all' ? undefined : statusFilter
-      const data = await incidentApi.list(status)
+      const data = await incidentApi.list()
       setIncidents(data)
       setError(null)
     } catch (err) {
@@ -35,14 +37,51 @@ export function IncidentList() {
 
   useEffect(() => {
     fetchIncidents()
-  }, [statusFilter])
+  }, [])
+
+  useEffect(() => {
+    if (!deleteTarget || deletingId) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDeleteTarget(null)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [deleteTarget, deletingId])
+
+  const deleteInvestigation = async () => {
+    if (!deleteTarget) return
+    const incident = deleteTarget
+    const label = incident.incident_title || formatIncidentId(incident.incident_id)
+
+    setDeletingId(incident.investigation_id)
+    setActionError(null)
+    try {
+      await incidentApi.deleteInvestigation(incident.investigation_id)
+      setIncidents(current => current.filter(item => item.investigation_id !== incident.investigation_id))
+      setDeleteTarget(null)
+    } catch (err) {
+      console.error(err)
+      setActionError(`Could not delete “${label}”. Please try again.`)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const activeCount = incidents.filter(({ status }) => status === 'pending' || status === 'running').length
+  const completedCount = incidents.filter(({ status }) => status === 'completed').length
+  const avgConfidence = incidents.length
+    ? incidents.reduce((sum, incident) => sum + incident.overall_confidence, 0) / incidents.length
+    : 0
 
   const filteredIncidents = incidents.filter(incident => {
+    if (statusFilter !== 'all' && incident.status !== statusFilter) return false
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       return (
         incident.incident_id.toLowerCase().includes(query) ||
-        incident.incident_id.toLowerCase().includes(query)
+        formatIncidentId(incident.incident_id).toLowerCase().includes(query) ||
+        incident.investigation_id.toLowerCase().includes(query) ||
+        (incident.current_hypothesis || '').replace(/_/g, ' ').toLowerCase().includes(query)
       )
     }
     return true
@@ -73,6 +112,14 @@ export function IncidentList() {
   }
 
   return (
+    <div className="space-y-6">
+      <section aria-label="Incident overview" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total incidents" value={incidents.length} detail="All investigations" icon={ListChecks} tone="blue" />
+        <StatCard label="Active" value={activeCount} detail="Pending or running" icon={Activity} tone="amber" />
+        <StatCard label="Completed" value={completedCount} detail="Investigation finished" icon={CheckCircle2} tone="green" />
+        <StatCard label="Average confidence" value={`${Math.round(avgConfidence * 100)}%`} detail="Across all investigations" icon={Gauge} tone="violet" />
+      </section>
+
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
@@ -114,7 +161,7 @@ export function IncidentList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Incident ID</TableHead>
+                <TableHead>Incident</TableHead>
                 <TableHead>Investigation ID</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Confidence</TableHead>
@@ -134,7 +181,15 @@ export function IncidentList() {
               ) : (
                 filteredIncidents.map((incident) => (
                   <TableRow key={incident.investigation_id}>
-                    <TableCell className="font-mono text-sm">{truncate(incident.incident_id, 12)}</TableCell>
+                    <TableCell title={incident.incident_id}>
+                      <button
+                        type="button"
+                        className="text-left font-medium text-primary-700 hover:underline dark:text-primary-300"
+                        onClick={() => navigate(`/investigation/${incident.investigation_id}`)}
+                      >
+                        {incident.incident_title || formatIncidentId(incident.incident_id)}
+                      </button>
+                    </TableCell>
                     <TableCell className="font-mono text-sm">{truncate(incident.investigation_id, 12)}</TableCell>
                     <TableCell>
                       <Badge variant={incident.status === 'completed' ? 'success' : incident.status === 'running' ? 'default' : 'destructive'}>
@@ -157,13 +212,32 @@ export function IncidentList() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-dark-500">{formatRelativeTime(incident.created_at)}</TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => window.location.href = `/investigation/${incident.investigation_id}`}
+                        className="h-8 w-8 p-0"
+                        aria-label={`View ${incident.incident_title || incident.incident_id}`}
+                        title="View investigation"
+                        onClick={() => navigate(`/investigation/${incident.investigation_id}`)}
                       >
-                        View
+                        <Eye className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 dark:text-red-400"
+                        disabled={deletingId !== null}
+                        aria-label={`Delete ${incident.incident_title || incident.incident_id}`}
+                        title="Delete this investigation"
+                        onClick={() => {
+                          setActionError(null)
+                          setDeleteTarget(incident)
+                        }}
+                      >
+                        {deletingId === incident.investigation_id
+                          ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                          : <Trash2 className="h-4 w-4" aria-hidden="true" />}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -171,6 +245,83 @@ export function IncidentList() {
               )}
             </TableBody>
           </Table>
+        </div>
+      </CardContent>
+    </Card>
+    {deleteTarget && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        onClick={() => deletingId === null && setDeleteTarget(null)}
+      >
+        <section
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+          aria-describedby="delete-dialog-description"
+          className="w-full max-w-md rounded-xl border border-dark-200 bg-white p-6 shadow-2xl dark:border-dark-700 dark:bg-dark-900"
+          onClick={event => event.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="rounded-full bg-red-100 p-2 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 id="delete-dialog-title" className="text-lg font-semibold text-dark-900 dark:text-dark-100">Delete investigation?</h2>
+                <p id="delete-dialog-description" className="mt-2 text-sm text-dark-600 dark:text-dark-300">
+                  This will permanently remove <strong>{deleteTarget.incident_title || formatIncidentId(deleteTarget.incident_id)}</strong> and its investigation data.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="rounded-md p-1 text-dark-500 hover:bg-dark-100 dark:hover:bg-dark-800"
+              aria-label="Close delete confirmation"
+              disabled={deletingId !== null}
+              onClick={() => setDeleteTarget(null)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {actionError && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{actionError}</p>}
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" disabled={deletingId !== null} onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="destructive" loading={deletingId === deleteTarget.investigation_id} onClick={deleteInvestigation}>
+              <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+              Delete
+            </Button>
+          </div>
+        </section>
+      </div>
+    )}
+    </div>
+  )
+}
+
+function StatCard({ label, value, detail, icon: Icon, tone }: {
+  label: string
+  value: string | number
+  detail: string
+  icon: typeof ListChecks
+  tone: 'blue' | 'amber' | 'green' | 'violet'
+}) {
+  const tones = {
+    blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    green: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    violet: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+  }
+
+  return (
+    <Card>
+      <CardContent className="flex items-center justify-between gap-4 pt-6">
+        <div>
+          <p className="text-sm font-medium text-dark-500 dark:text-dark-400">{label}</p>
+          <p className="mt-1 text-3xl font-bold text-dark-900 dark:text-dark-100">{value}</p>
+          <p className="mt-1 text-xs text-dark-500 dark:text-dark-400">{detail}</p>
+        </div>
+        <div className={`rounded-xl p-3 ${tones[tone]}`}>
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
       </CardContent>
     </Card>

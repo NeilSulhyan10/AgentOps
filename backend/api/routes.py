@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, WebSocket, WebSocketDisconnect
 from typing import List, Optional
 from backend.models import (
     Incident,
@@ -13,6 +13,8 @@ from backend.models import (
     RemediationRecommendation
 )
 from backend.services.investigation_service import investigation_service
+from backend.orchestrator.state import mongo_state_manager
+from backend.api.websocket import investigation_websocket
 
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
@@ -38,6 +40,7 @@ async def list_incidents(status_filter: Optional[InvestigationStatus] = None):
         InvestigationStatusResponse(
             investigation_id=inv.investigation_id,
             incident_id=inv.incident_id,
+            incident_title=inv.incident.title if inv.incident else inv.incident_id,
             status=inv.investigation_status,
             current_hypothesis=inv.current_hypothesis,
             overall_confidence=inv.overall_confidence,
@@ -63,19 +66,27 @@ async def get_incident(incident_id: str):
     return InvestigationStatusResponse(
         investigation_id=investigation.investigation_id,
         incident_id=investigation.incident_id,
-        status=inv.investigation_status,
-        current_hypothesis=inv.current_hypothesis,
-        overall_confidence=inv.overall_confidence,
-        iteration_count=inv.iteration_count,
-        agents_invoked=inv.agents_invoked,
-        evidence_count=len(inv.evidence),
-        created_at=inv.created_at,
-        updated_at=inv.updated_at,
-        completed_at=inv.completed_at
+        incident_title=investigation.incident.title if investigation.incident else investigation.incident_id,
+        status=investigation.investigation_status,
+        current_hypothesis=investigation.current_hypothesis,
+        overall_confidence=investigation.overall_confidence,
+        iteration_count=investigation.iteration_count,
+        agents_invoked=investigation.agents_invoked,
+        evidence_count=len(investigation.evidence),
+        created_at=investigation.created_at,
+        updated_at=investigation.updated_at,
+        completed_at=investigation.completed_at
     )
 
 
 investigation_router = APIRouter(prefix="/investigations", tags=["investigations"])
+
+
+@investigation_router.delete("/{investigation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_investigation(investigation_id: str):
+    deleted = await mongo_state_manager.delete_state(investigation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Investigation not found")
 
 
 @investigation_router.get("/{investigation_id}", response_model=InvestigationState)
@@ -214,3 +225,10 @@ async def get_remediation(investigation_id: str):
         "status": rem.status,
         "created_at": rem.created_at.isoformat()
     }
+
+
+# WebSocket endpoint for real-time investigation updates
+@investigation_router.websocket("/{investigation_id}/ws")
+async def investigation_websocket_route(websocket: WebSocket, investigation_id: str):
+    """WebSocket endpoint for real-time investigation updates."""
+    await investigation_websocket(websocket, investigation_id)

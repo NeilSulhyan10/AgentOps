@@ -1,24 +1,6 @@
 version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:7.0
-    container_name: agentops-mongodb
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: agentops
-    volumes:
-      - mongodb_data:/data/db
-      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - agentops-network
-
   backend:
     build:
       context: .
@@ -30,8 +12,8 @@ services:
     environment:
       - APP_ENV=production
       - DEBUG=false
-      - MONGODB_URI=mongodb://mongodb:27017
-      - MONGODB_DATABASE=agentops
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DATABASE=${MONGODB_DATABASE}
       - LLM_PROVIDER=nemotron
       - NEMOTRON_API_KEY=${NEMOTRON_API_KEY}
       - NEMOTRON_API_URL=https://integrate.api.nvidia.com/v1
@@ -42,9 +24,6 @@ services:
       - DATA_DIR=/app/data
     volumes:
       - ./data:/app/data:ro
-    depends_on:
-      mongodb:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -90,9 +69,6 @@ services:
         reservations:
           cpus: '0.5'
           memory: 256M
-
-volumes:
-  mongodb_data:
 
 networks:
   agentops-network:

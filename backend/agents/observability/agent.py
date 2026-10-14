@@ -53,38 +53,38 @@ class ObservabilityAgent:
             p95 = lat.raw_data.get("p95", 0)
             if isinstance(p99, (int, float)) and p99 > 2000:
                 findings.append(f"High P99 latency: {p99}ms")
-                evidence_refs.append(lat.description)
+                evidence_refs.append(lat.evidence_id)
                 confidence = max(confidence, 0.85)
             elif isinstance(p95, (int, float)) and p95 > 1000:
                 findings.append(f"Elevated P95 latency: {p95}ms")
-                evidence_refs.append(lat.description)
+                evidence_refs.append(lat.evidence_id)
                 confidence = max(confidence, 0.75)
 
         for err in error_evidence:
             rate = err.raw_data.get("rate", 0)
             if isinstance(rate, (int, float)) and rate > 10:
                 findings.append(f"High error rate: {rate}%")
-                evidence_refs.append(err.description)
+                evidence_refs.append(err.evidence_id)
                 confidence = max(confidence, 0.9)
             elif isinstance(rate, (int, float)) and rate > 1:
                 findings.append(f"Elevated error rate: {rate}%")
-                evidence_refs.append(err.description)
+                evidence_refs.append(err.evidence_id)
                 confidence = max(confidence, 0.7)
 
         for log in log_evidence[:5]:
             findings.append(f"Log entry: {log.description}")
-            evidence_refs.append(log.description)
+            evidence_refs.append(log.evidence_id)
 
         for trace in trace_evidence:
             duration = trace.raw_data.get("duration", 0)
             if isinstance(duration, (int, float)) and duration > 5000:
                 findings.append(f"Slow trace detected: {duration}ms")
-                evidence_refs.append(trace.description)
+                evidence_refs.append(trace.evidence_id)
                 confidence = max(confidence, 0.8)
 
         for stack in stack_evidence:
             findings.append(f"Stack trace: {stack.description}")
-            evidence_refs.append(stack.description)
+            evidence_refs.append(stack.evidence_id)
             confidence = max(confidence, 0.85)
 
         has_high_latency = any(

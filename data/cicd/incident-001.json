@@ -1,0 +1,61 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "deploy-001",
+      "timestamp": "2024-01-15T10:28:00Z",
+      "service": "payment-service",
+      "namespace": "production",
+      "image": "payment-service:v2.3.1",
+      "previous_image": "payment-service:v2.3.0",
+      "strategy": "rolling",
+      "replicas": 3,
+      "status": "success"
+    }
+  ],
+  "code_changes": [
+    {
+      "file": "src/payment/handler.py",
+      "description": "Modified payment validation logic",
+      "author": "dev-team",
+      "commit": "abc1234",
+      "timestamp": "2024-01-15T09:00:00Z"
+    },
+    {
+      "file": "src/payment/validator.py",
+      "description": "Added new validation rules for card numbers",
+      "author": "dev-team",
+      "commit": "def5678",
+      "timestamp": "2024-01-15T09:15:00Z"
+    },
+    {
+      "file": "src/payment/api.py",
+      "description": "Updated API endpoint for refunds",
+      "author": "dev-team",
+      "commit": "ghi9012",
+      "timestamp": "2024-01-15T09:30:00Z"
+    }
+  ],
+  "config_changes": [
+    {
+      "key": "payment.timeout_ms",
+      "old_value": "5000",
+      "new_value": "3000",
+      "timestamp": "2024-01-15T10:25:00Z",
+      "changed_by": "devops-team"
+    }
+  ],
+  "dependency_changes": [
+    {
+      "name": "stripe-python",
+      "old_version": "5.5.0",
+      "new_version": "6.0.0",
+      "timestamp": "2024-01-15T10:20:00Z"
+    }
+  ],
+  "rollout_info": {
+    "type": "rolling",
+    "max_surge": "25%",
+    "max_unavailable": "0%",
+    "canary_percentage": 10
+  }
+}

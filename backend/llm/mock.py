@@ -78,9 +78,9 @@ class MockLLM(LLMProvider):
             })
         elif "root cause" in prompt_lower or "rca" in prompt_lower:
             return json.dumps({
-                "root_cause": "Mock root cause identified",
+                "root_cause": "What happened: The investigation found that a recent software change may be linked to the service problem.\nWhy it happened: The available evidence points to the change, but does not yet show exactly which part caused the failure.",
                 "root_cause_type": "deployment_induced_failure",
-                "contributing_factors": ["factor1", "factor2"],
+                "contributing_factors": ["A recent software change needs review", "More evidence is needed to confirm the exact cause"],
                 "confidence": 0.85
             })
         elif "remediation" in prompt_lower:
@@ -212,12 +212,12 @@ class DeterministicMockLLM(MockLLM):
     async def _deterministic_rca(self, prompt: str) -> LLMResponse:
         return LLMResponse(
             content=json.dumps({
-                "root_cause": "Recent deployment reduced memory limit from 1Gi to 512Mi, causing payment-service pods to exceed configured memory limit and terminate with exit code 137",
+                "root_cause": "What happened: A recent release cut the memory available to the payment service in half. The service then ran out of room and was stopped.\nWhy it happened: The new memory limit was too low for the service's normal workload.\nAnalogy: It is like trying to pack the same things into a suitcase half the size.",
                 "root_cause_type": "deployment_induced_failure",
                 "contributing_factors": [
-                    "Memory limit reduced in deployment",
-                    "Application memory usage exceeded new limit",
-                    "No canary deployment to catch issue"
+                    "The release cut the service's available memory in half",
+                    "The service needed more memory than the new limit allowed",
+                    "The change was not tried with a small group of users first"
                 ],
                 "confidence": 0.89
             }),
