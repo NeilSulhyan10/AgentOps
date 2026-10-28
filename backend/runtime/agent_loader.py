@@ -3,38 +3,50 @@ Agent Definition Loader
 
 Loads agent definitions from Markdown files and provides them as system prompts
 for LLM-powered agent execution.
+
+Any .md file placed in agents/markdown/ that is NOT a reserved name is treated
+as a specialist analysis agent and will be available for dynamic dispatch.
+Reserved names are used by the orchestrator itself and are never dispatched to
+as a specialist: router, rca_synthesizer, remediation_planner, critic.
 """
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
+# Names that exist in agents/markdown/ but are orchestrator agents, not
+# specialist analysis agents.  They are loaded normally but excluded from the
+# pool of dispatchable agents.
+RESERVED_AGENT_NAMES: frozenset[str] = frozenset(
+    {"router", "rca_synthesizer", "remediation_planner", "critic"}
+)
+
 
 class AgentDefinitionLoader:
     """Loads and caches agent definitions from Markdown files."""
-    
+
     def __init__(self, agents_dir: Optional[Path] = None):
         if agents_dir is None:
             # Default to backend/agents/markdown relative to this file
             self.agents_dir = Path(__file__).parent.parent / "agents" / "markdown"
         else:
             self.agents_dir = agents_dir
-        
+
         self._cache: Dict[str, str] = {}
         self._loaded = False
-    
+
     def load_all(self) -> Dict[str, str]:
         """Load all .md files from agents directory."""
         if self._loaded:
             return self._cache
-        
+
         if not self.agents_dir.exists():
             logger.warning(f"Agents directory not found: {self.agents_dir}")
             return {}
-        
-        for md_file in self.agents_dir.glob("*.md"):
+
+        for md_file in sorted(self.agents_dir.glob("*.md")):
             agent_name = md_file.stem
             try:
                 content = md_file.read_text(encoding="utf-8")
@@ -42,22 +54,43 @@ class AgentDefinitionLoader:
                 logger.info(f"Loaded agent definition: {agent_name}")
             except Exception as e:
                 logger.error(f"Failed to load agent {agent_name}: {e}")
-        
+
         self._loaded = True
+        logger.info(
+            f"Discovered specialist agents: {self.get_specialist_agent_names()}"
+        )
         return self._cache
-    
+
     def get(self, agent_name: str) -> Optional[str]:
         """Get a specific agent definition by name."""
         if not self._loaded:
             self.load_all()
         return self._cache.get(agent_name)
-    
+
     def reload(self) -> Dict[str, str]:
         """Force reload all agent definitions."""
         self._cache.clear()
         self._loaded = False
         return self.load_all()
 
+    def get_specialist_agent_names(self) -> List[str]:
+        """
+        Return the names of all dynamically discovered specialist agents —
+        i.e., every loaded .md whose name is NOT in RESERVED_AGENT_NAMES.
+        These are the agents that the router can dispatch to.
+        """
+        if not self._loaded:
+            self.load_all()
+        return [
+            name
+            for name in self._cache
+            if name not in RESERVED_AGENT_NAMES
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers
+# ---------------------------------------------------------------------------
 
 # Global loader instance
 _loader: Optional[AgentDefinitionLoader] = None
@@ -90,3 +123,11 @@ def reload_agent_definitions() -> Dict[str, str]:
     """Reload all agent definitions from disk."""
     loader = get_agent_loader()
     return loader.reload()
+
+
+def get_specialist_agent_names() -> List[str]:
+    """
+    Convenience wrapper — returns the names of all dispatchable specialist
+    agents discovered on disk.
+    """
+    return get_agent_loader().get_specialist_agent_names()

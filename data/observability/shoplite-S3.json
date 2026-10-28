@@ -1,0 +1,101 @@
+{
+  "latency": {
+    "p50": 1200,
+    "p95": 2400,
+    "p99": 2950,
+    "unit": "ms",
+    "timestamp": "2024-06-03T11:05:00Z",
+    "service": "shoplite"
+  },
+  "error_rate": {
+    "rate": 41.2,
+    "count": 824,
+    "total_requests": 2000,
+    "timestamp": "2024-06-03T11:05:00Z",
+    "service": "shoplite",
+    "error_codes": {
+      "500": 824
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-06-03T11:01:30Z",
+      "level": "ERROR",
+      "message": "GET /products → 500",
+      "service": "shoplite",
+      "request_id": "req-lat-001",
+      "route": "/products",
+      "latency_ms": 2800,
+      "status_code": 500,
+      "error": "http_error"
+    },
+    {
+      "timestamp": "2024-06-03T11:01:32Z",
+      "level": "ERROR",
+      "message": "POST /orders → 500",
+      "service": "shoplite",
+      "request_id": "req-lat-002",
+      "route": "/orders",
+      "latency_ms": 1750,
+      "status_code": 500,
+      "error": "http_error"
+    },
+    {
+      "timestamp": "2024-06-03T11:01:34Z",
+      "level": "INFO",
+      "message": "GET /products → 200",
+      "service": "shoplite",
+      "request_id": "req-lat-003",
+      "route": "/products",
+      "latency_ms": 2200,
+      "status_code": 200
+    },
+    {
+      "timestamp": "2024-06-03T11:01:36Z",
+      "level": "ERROR",
+      "message": "GET /products → 500",
+      "service": "shoplite",
+      "request_id": "req-lat-004",
+      "route": "/products",
+      "latency_ms": 3000,
+      "status_code": 500,
+      "error": "http_error"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-06-03T11:01:30Z",
+      "error": "RuntimeError: Injected 500 under latency fault",
+      "service": "shoplite",
+      "trace": "app/main.py in _maybe_500\n  raise RuntimeError(\"Injected 500 under latency fault\")\nRuntimeError: Injected 500 under latency fault"
+    }
+  ],
+  "traces": [
+    {
+      "trace_id": "lat-trace-001",
+      "service": "shoplite",
+      "operation": "GET /products",
+      "duration": 2800,
+      "status": "error",
+      "error": "injected_500",
+      "timestamp": "2024-06-03T11:01:30Z",
+      "tags": {
+        "http.status_code": 500,
+        "fault": "latency"
+      }
+    },
+    {
+      "trace_id": "lat-trace-002",
+      "service": "shoplite",
+      "operation": "POST /orders",
+      "duration": 1750,
+      "status": "error",
+      "error": "injected_500",
+      "timestamp": "2024-06-03T11:01:32Z",
+      "tags": {
+        "http.status_code": 500,
+        "fault": "latency"
+      }
+    }
+  ]
+}

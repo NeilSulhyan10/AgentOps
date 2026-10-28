@@ -1,0 +1,34 @@
+{
+  "incident_id": "shoplite-S3",
+  "root_cause": "FAULT=latency is active. Every non-health request is delayed by 500–3000 ms in the HTTP middleware before processing, and 40% of requests to /products and /orders are randomly terminated with HTTP 500. This causes the Prometheus P99 latency to exceed 2000 ms and the error rate to exceed 40%, both well above the alerting thresholds.",
+  "root_cause_type": "traffic_incident",
+  "contributing_factors": [
+    "FAULT=latency injects random 500–3000 ms sleep in the HTTP middleware",
+    "40% of requests randomly return HTTP 500 via _maybe_500()",
+    "P99 latency spikes above 2000 ms threshold",
+    "Error rate rises above 40% — exceeds the 10% critical threshold",
+    "Health endpoint unaffected (excluded from fault injection)"
+  ],
+  "evidence": [
+    "Prometheus shoplite_request_latency_seconds P99 > 2.0 s",
+    "Prometheus shoplite_errors_total rate > 40% on /products and /orders",
+    "Application logs: multiple 500 responses on /products and /orders",
+    "FAULT=latency present in /version endpoint response",
+    "GET /health returns 200 — pod is alive, not OOMKilled",
+    "No recent deployment or config change"
+  ],
+  "agents_consulted": ["observability_analyzer"],
+  "expected_confidence": 0.85,
+  "remediation": {
+    "recommendation": "Disable the latency fault (FAULT=none) to immediately restore normal response times and error rates.",
+    "steps": [
+      "POST /fault with body {\"fault\": \"none\"} or redeploy with FAULT=none",
+      "Verify P99 latency drops below 200 ms and error rate below 1%",
+      "Review Prometheus dashboards for any residual errors",
+      "Add circuit breakers or timeouts in the API gateway layer for production hardening"
+    ],
+    "priority": "high",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

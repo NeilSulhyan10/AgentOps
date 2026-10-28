@@ -1,0 +1,34 @@
+{
+  "incident_id": "incident-005",
+  "root_cause": "The primary database became unreachable during a failover at 15:01, so orders-api could not open connections and exhausted its pool. The earlier deployment is unrelated and the pods themselves are healthy.",
+  "root_cause_type": "dependency_issue",
+  "contributing_factors": [
+    "Database primary failover at 15:01",
+    "Connection refused to db-primary.internal:5432",
+    "Connection pool exhausted with no fast-fail",
+    "Deployment two hours earlier is a red herring"
+  ],
+  "evidence": [
+    "Connection refused to database host",
+    "Database failover started",
+    "Pods running with zero restarts",
+    "Deployment succeeded at 13:00"
+  ],
+  "agents_consulted": [
+    "observability_analyzer",
+    "dependency_analyzer"
+  ],
+  "expected_confidence": 0.87,
+  "remediation": {
+    "recommendation": "Restore database connectivity and make the application reconnect after failover",
+    "steps": [
+      "Confirm the new database primary is serving",
+      "Point db-primary.internal at the new primary",
+      "Restart or recycle connection pools",
+      "Add retry with backoff and a circuit breaker"
+    ],
+    "priority": "high",
+    "estimated_effort": "medium",
+    "risk_level": "low"
+  }
+}

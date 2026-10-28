@@ -1,5 +1,5 @@
 import pytest
-from backend.models import Incident, IncidentSeverity, IncidentStatus, AgentType, HypothesisType, Evidence, EvidenceType
+from backend.models import Incident, IncidentSeverity, IncidentStatus, HypothesisType, Evidence, EvidenceType
 from backend.agents.cicd.agent import CICDAgent
 from backend.agents.kubernetes.agent import KubernetesAgent
 from backend.agents.observability.agent import ObservabilityAgent
@@ -26,7 +26,7 @@ def test_cicd_agent_no_deployment(sample_incident):
     agent = CICDAgent()
     finding = agent.investigate(sample_incident, [])
 
-    assert finding.agent_type == AgentType.CICD
+    assert finding.agent_type == "cicd_analyzer"
     assert finding.hypothesis == HypothesisType.UNKNOWN
     assert finding.confidence == 0.1
 
@@ -37,7 +37,7 @@ def test_kubernetes_agent_oom(sample_incident):
     evidence = [
         Evidence(
             investigation_id="test",
-            agent_type=AgentType.KUBERNETES,
+            agent_type="kubernetes_analyzer",
             evidence_type=EvidenceType.POD_EXIT_CODE,
             description="Pod exited with code 137",
             raw_data={"exit_code": 137, "pod": "test-pod"},
@@ -46,7 +46,7 @@ def test_kubernetes_agent_oom(sample_incident):
         ),
         Evidence(
             investigation_id="test",
-            agent_type=AgentType.KUBERNETES,
+            agent_type="kubernetes_analyzer",
             evidence_type=EvidenceType.RESOURCE_USAGE,
             description="Memory usage 980Mi/1Gi",
             raw_data={"usage": "980Mi", "limit": "1Gi", "pod": "test-pod"},
@@ -57,7 +57,7 @@ def test_kubernetes_agent_oom(sample_incident):
 
     finding = agent.investigate(sample_incident, evidence)
 
-    assert finding.agent_type == AgentType.KUBERNETES
+    assert finding.agent_type == "kubernetes_analyzer"
     assert finding.hypothesis == HypothesisType.KUBERNETES_OOM
     assert finding.confidence >= 0.9
     assert "OOMKilled" in finding.finding
@@ -69,7 +69,7 @@ def test_kubernetes_agent_high_restarts(sample_incident):
     evidence = [
         Evidence(
             investigation_id="test",
-            agent_type=AgentType.KUBERNETES,
+            agent_type="kubernetes_analyzer",
             evidence_type=EvidenceType.POD_RESTART_COUNT,
             description="Pod restarted 8 times",
             raw_data={"restart_count": 8, "pod": "test-pod"},
@@ -80,7 +80,7 @@ def test_kubernetes_agent_high_restarts(sample_incident):
 
     finding = agent.investigate(sample_incident, evidence)
 
-    assert finding.agent_type == AgentType.KUBERNETES
+    assert finding.agent_type == "kubernetes_analyzer"
     assert finding.hypothesis == HypothesisType.KUBERNETES_OOM
     assert finding.confidence >= 0.8
 
@@ -91,7 +91,7 @@ def test_observability_agent_high_errors(sample_incident):
     evidence = [
         Evidence(
             investigation_id="test",
-            agent_type=AgentType.OBSERVABILITY,
+            agent_type="observability_analyzer",
             evidence_type=EvidenceType.ERROR_RATE,
             description="Error rate 38%",
             raw_data={"rate": 38.5, "count": 1542},
@@ -100,7 +100,7 @@ def test_observability_agent_high_errors(sample_incident):
         ),
         Evidence(
             investigation_id="test",
-            agent_type=AgentType.OBSERVABILITY,
+            agent_type="observability_analyzer",
             evidence_type=EvidenceType.LATENCY,
             description="P99 latency 320ms",
             raw_data={"p99": 320, "p95": 180},
@@ -111,7 +111,7 @@ def test_observability_agent_high_errors(sample_incident):
 
     finding = agent.investigate(sample_incident, evidence)
 
-    assert finding.agent_type == AgentType.OBSERVABILITY
+    assert finding.agent_type == "observability_analyzer"
     assert finding.hypothesis == HypothesisType.TRAFFIC_INCIDENT
     assert finding.confidence >= 0.8
 
@@ -122,7 +122,7 @@ def test_observability_agent_stack_trace(sample_incident):
     evidence = [
         Evidence(
             investigation_id="test",
-            agent_type=AgentType.OBSERVABILITY,
+            agent_type="observability_analyzer",
             evidence_type=EvidenceType.STACK_TRACE,
             description="NullPointerException in PaymentHandler",
             raw_data={"error": "NullPointerException", "trace": "..."},
@@ -133,7 +133,7 @@ def test_observability_agent_stack_trace(sample_incident):
 
     finding = agent.investigate(sample_incident, evidence)
 
-    assert finding.agent_type == AgentType.OBSERVABILITY
+    assert finding.agent_type == "observability_analyzer"
     assert finding.hypothesis == HypothesisType.APPLICATION_ERROR
     assert finding.confidence >= 0.8
 

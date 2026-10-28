@@ -1,0 +1,19 @@
+{
+  "incident_id": "shoplite-S5",
+  "title": "ShopLite 100% error rate — database dependency unreachable",
+  "description": "ShopLite is returning HTTP 503 on all requests to /products, /orders, and /health. Pods are running but not ready (readiness probe fails with 503). Logs show 'Database unreachable'. FAULT=db_down is active or DB_URL points to an unreachable host. Deployment itself was healthy — fault injected post-deploy.",
+  "severity": "critical",
+  "status": "open",
+  "source": "prometheus-alert",
+  "service_name": "shoplite",
+  "namespace": "shoplite",
+  "started_at": "2024-06-05T14:30:00Z",
+  "detected_at": "2024-06-05T14:35:00Z",
+  "metadata": {
+    "alert_name": "ShopliteAllEndpoints503",
+    "error_rate": 100.0,
+    "fault": "db_down",
+    "dependency": "postgresql"
+  },
+  "tags": ["dependency", "database", "503", "shoplite"]
+}

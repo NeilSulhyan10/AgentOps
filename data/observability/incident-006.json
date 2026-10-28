@@ -1,0 +1,34 @@
+{
+  "latency": {
+    "p50": 380,
+    "p95": 2800,
+    "p99": 4500,
+    "unit": "ms",
+    "timestamp": "2024-02-12T08:35:00Z",
+    "service": "search-service"
+  },
+  "error_rate": {
+    "rate": 2.1,
+    "count": 84,
+    "total_requests": 4000,
+    "timestamp": "2024-02-12T08:35:00Z",
+    "service": "search-service",
+    "error_codes": {
+      "504": 84
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-02-12T08:20:00Z",
+      "level": "WARN",
+      "message": "GC pause 1800ms: heap at 97% after full collection",
+      "service": "search-service"
+    },
+    {
+      "timestamp": "2024-02-12T08:31:00Z",
+      "level": "WARN",
+      "message": "Index cache growing without eviction: 910Mi resident",
+      "service": "search-service"
+    }
+  ]
+}

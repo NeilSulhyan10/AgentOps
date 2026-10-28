@@ -10,7 +10,6 @@ from backend.models import (
     InvestigationState,
     IncidentSeverity,
     IncidentStatus,
-    AgentType,
     HypothesisType,
     InvestigationStatus,
     Evidence,
@@ -140,25 +139,25 @@ class TestAgentInvestigation:
     def test_cicd_agent_finds_deployment(self):
         agent = CICDAgent()
         finding = agent.investigate(self.incident, self.all_evidence)
-        assert finding.agent_type == AgentType.CICD
+        assert finding.agent_type == "cicd_analyzer"
         assert finding.hypothesis == HypothesisType.DEPLOYMENT_INDUCED_FAILURE
         assert finding.confidence >= 0.8
         assert "deployment" in finding.finding.lower()
         assert len(finding.evidence) > 0
-    
+
     def test_kubernetes_agent_finds_oom(self):
         agent = KubernetesAgent()
         finding = agent.investigate(self.incident, self.all_evidence)
-        assert finding.agent_type == AgentType.KUBERNETES
+        assert finding.agent_type == "kubernetes_analyzer"
         assert finding.hypothesis == HypothesisType.KUBERNETES_OOM
         assert finding.confidence >= 0.8
         assert "oom" in finding.finding.lower() or "memory" in finding.finding.lower()
         assert len(finding.evidence) > 0
-    
+
     def test_observability_agent_finds_errors(self):
         agent = ObservabilityAgent()
         finding = agent.investigate(self.incident, self.all_evidence)
-        assert finding.agent_type == AgentType.OBSERVABILITY
+        assert finding.agent_type == "observability_analyzer"
         # Could be traffic_incident or deployment_induced_failure depending on evidence
         assert finding.confidence >= 0.5
         assert len(finding.evidence) > 0
@@ -194,9 +193,9 @@ class TestConfidenceSystem:
         obs_finding = obs_agent.investigate(incident, all_evidence)
         
         confidence_scores = {
-            AgentType.CICD: cicd_finding.confidence,
-            AgentType.KUBERNETES: k8s_finding.confidence,
-            AgentType.OBSERVABILITY: obs_finding.confidence,
+            "cicd_analyzer": cicd_finding.confidence,
+            "kubernetes_analyzer": k8s_finding.confidence,
+            "observability_analyzer": obs_finding.confidence,
         }
         
         overall = calculate_overall_confidence(confidence_scores)
@@ -214,15 +213,15 @@ class TestConfidenceSystem:
         assert calculate_overall_confidence({}) == 0.0
         
         # Single agent
-        assert calculate_overall_confidence({AgentType.CICD: 0.8}) == 0.8
-        
+        assert calculate_overall_confidence({"cicd_analyzer": 0.8}) == 0.8
+
         # Two agents
         conf = calculate_overall_confidence({
-            AgentType.CICD: 0.8,
-            AgentType.KUBERNETES: 0.9,
+            "cicd_analyzer": 0.8,
+            "kubernetes_analyzer": 0.9,
         })
-        # 1 - (1-0.8)*(1-0.9) = 1 - 0.02 = 0.98
-        assert abs(conf - 0.98) < 0.01
+        # max(0.8, 0.9) = 0.9
+        assert abs(conf - 0.9) < 0.01
 
 
 class TestRCAAndRemediation:
@@ -264,11 +263,11 @@ class TestRCAAndRemediation:
             k8s_agent.investigate(self.incident, self.all_evidence),
             obs_agent.investigate(self.incident, self.all_evidence),
         ]
-        self.investigation.agents_invoked = [AgentType.CICD, AgentType.KUBERNETES, AgentType.OBSERVABILITY]
+        self.investigation.agents_invoked = ["cicd_analyzer", "kubernetes_analyzer", "observability_analyzer"]
         self.investigation.confidence_scores = {
-            AgentType.CICD: self.investigation.agent_findings[0].confidence,
-            AgentType.KUBERNETES: self.investigation.agent_findings[1].confidence,
-            AgentType.OBSERVABILITY: self.investigation.agent_findings[2].confidence,
+            "cicd_analyzer": self.investigation.agent_findings[0].confidence,
+            "kubernetes_analyzer": self.investigation.agent_findings[1].confidence,
+            "observability_analyzer": self.investigation.agent_findings[2].confidence,
         }
         self.investigation.overall_confidence = calculate_overall_confidence(
             self.investigation.confidence_scores
@@ -410,8 +409,8 @@ class TestEdgeCases:
         assert finding.confidence == 0.1
     
     def test_confidence_with_zero_scores(self):
-        assert calculate_overall_confidence({AgentType.CICD: 0.0}) == 0.0
-        assert calculate_overall_confidence({AgentType.CICD: 0.0, AgentType.KUBERNETES: 0.0}) == 0.0
+        assert calculate_overall_confidence({"cicd_analyzer": 0.0}) == 0.0
+        assert calculate_overall_confidence({"cicd_analyzer": 0.0, "kubernetes_analyzer": 0.0}) == 0.0
     
     def test_rca_with_no_findings(self):
         investigation = InvestigationState(

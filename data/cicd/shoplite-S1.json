@@ -1,0 +1,54 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "shoplite-deploy-S1",
+      "timestamp": "2024-06-01T09:00:00Z",
+      "service": "shoplite",
+      "namespace": "shoplite",
+      "image": "shoplite:sha-badcommit",
+      "previous_image": "shoplite:sha-abc1234",
+      "strategy": "rolling",
+      "replicas": 2,
+      "status": "failed"
+    }
+  ],
+  "code_changes": [
+    {
+      "file": "tests/test_app.py",
+      "description": "Added two intentionally-failing test cases (test_flaky_always_fails, test_flaky_import_error)",
+      "author": "dev-team",
+      "commit": "badcommit",
+      "timestamp": "2024-06-01T08:55:00Z"
+    }
+  ],
+  "config_changes": [
+    {
+      "key": "FLAKY_TESTS",
+      "old_value": "false",
+      "new_value": "true",
+      "timestamp": "2024-06-01T09:00:00Z",
+      "changed_by": "ci-workflow-dispatch"
+    }
+  ],
+  "dependency_changes": [],
+  "workflow_run": {
+    "run_id": "9999000001",
+    "workflow_name": "ShopLite CI",
+    "status": "failure",
+    "conclusion": "failure",
+    "head_sha": "badcommit",
+    "triggered_by": "workflow_dispatch",
+    "inputs": {
+      "flaky_tests": "true",
+      "fault": "none"
+    },
+    "failed_jobs": [
+      {
+        "job_name": "test",
+        "conclusion": "failure",
+        "failed_step": "Run tests",
+        "log_excerpt": "FAILED tests/test_app.py::test_flaky_always_fails - AssertionError: Intentional test failure\nFAILED tests/test_app.py::test_flaky_import_error - ModuleNotFoundError: No module named 'app.nonexistent_module'\n2 failed, 8 passed in 3.12s"
+      }
+    ]
+  }
+}

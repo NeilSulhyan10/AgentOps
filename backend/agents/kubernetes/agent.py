@@ -2,16 +2,16 @@ from typing import List, Dict, Any
 from backend.models import (
     Incident,
     AgentFinding,
-    AgentType,
     HypothesisType,
     Evidence
 )
-# from backend.tools.data_access import get_kubernetes_evidence
 
 
 class KubernetesAgent:
+    AGENT_NAME = "kubernetes_analyzer"
+
     def __init__(self):
-        self.agent_type = AgentType.KUBERNETES
+        self.agent_type = self.AGENT_NAME
 
     def investigate(self, incident: Incident, existing_evidence: List[Evidence]) -> AgentFinding:
         # Use the passed evidence instead of loading from fixtures

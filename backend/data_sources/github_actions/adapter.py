@@ -13,7 +13,7 @@ from .models import (
     WorkflowRunConclusion,
     JobConclusion,
 )
-from backend.models import EvidenceType, AgentType
+from backend.models import EvidenceType
 
 logger = logging.getLogger(__name__)
 

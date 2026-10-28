@@ -6,7 +6,7 @@ from enum import Enum
 import uuid
 
 from backend.models import (
-    IncidentSeverity, IncidentStatus, AgentType, HypothesisType,
+    IncidentSeverity, IncidentStatus, HypothesisType,
     InvestigationStatus, EvidenceType, Evidence, AgentFinding,
     RoutingDecision, ConfidenceEntry, RootCauseAnalysis, RemediationRecommendation
 )
@@ -34,7 +34,7 @@ class IncidentDoc(Document):
 class EvidenceDoc(Document):
     evidence_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     investigation_id: str
-    agent_type: AgentType
+    agent_type: str  # open string
     evidence_type: EvidenceType
     description: str
     raw_data: Dict[str, Any]
@@ -50,7 +50,7 @@ class EvidenceDoc(Document):
 class AgentFindingDoc(Document):
     finding_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     investigation_id: str
-    agent_type: AgentType
+    agent_type: str  # open string
     hypothesis: HypothesisType
     finding: str
     evidence: List[str] = Field(default_factory=list)
@@ -70,9 +70,9 @@ class RoutingDecisionDoc(Document):
     iteration: int
     current_hypothesis: Optional[HypothesisType]
     evidence_gaps: List[str]
-    agents_invoked: List[AgentType]
-    available_agents: List[AgentType]
-    selected_agent: AgentType
+    agents_invoked: List[str]    # open string list
+    available_agents: List[str]  # open string list
+    selected_agent: str          # open string
     reasoning: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -85,7 +85,7 @@ class ConfidenceEntryDoc(Document):
     entry_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     investigation_id: str
     iteration: int
-    agent_confidences: Dict[AgentType, float]
+    agent_confidences: Dict[str, float]  # keyed by agent name string
     overall_confidence: float
     threshold: float
     is_sufficient: bool
@@ -104,7 +104,7 @@ class RootCauseAnalysisDoc(Document):
     root_cause_type: HypothesisType
     contributing_factors: List[str] = Field(default_factory=list)
     evidence: List[str] = Field(default_factory=list)
-    agents_consulted: List[AgentType] = Field(default_factory=list)
+    agents_consulted: List[str] = Field(default_factory=list)  # open string list
     overall_confidence: float
     investigation_timeline: List[Dict[str, Any]] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -137,8 +137,8 @@ class InvestigationDoc(Document):
     current_hypothesis: Optional[HypothesisType] = None
     evidence_ids: List[str] = Field(default_factory=list)
     finding_ids: List[str] = Field(default_factory=list)
-    agents_invoked: List[AgentType] = Field(default_factory=list)
-    confidence_scores: Dict[AgentType, float] = Field(default_factory=dict)
+    agents_invoked: List[str] = Field(default_factory=list)         # open string list
+    confidence_scores: Dict[str, float] = Field(default_factory=dict)  # keyed by agent name
     overall_confidence: float = 0.0
     iteration_count: int = 0
     max_iterations: int = 5
@@ -148,6 +148,7 @@ class InvestigationDoc(Document):
     remediation_id: Optional[str] = None
     routing_decision_ids: List[str] = Field(default_factory=list)
     confidence_entry_ids: List[str] = Field(default_factory=list)
+    critic_reviews: List[Dict[str, Any]] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None

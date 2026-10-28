@@ -1,0 +1,38 @@
+{
+  "incident_id": "shoplite-S6",
+  "root_cause": "A single deploy workflow run combined three simultaneous fault conditions: (1) FAULT=oom starts a memory-leak thread that drives the container above its lowered 128 MiB limit causing OOMKills; (2) FAULT=latency raises P99 latency and error rate while the pod is alive between restarts; (3) the memory limit was reduced from 256 Mi to 128 Mi in the same deployment, which is what made the OOM threshold reachable. All three layers are causally linked to one bad deployment.",
+  "root_cause_type": "multi_layer_failure",
+  "contributing_factors": [
+    "Memory limit reduced from 256Mi to 128Mi in the deployment manifest",
+    "FAULT=oom active: background thread leaks 1 MiB / 200 ms",
+    "FAULT=latency active: 500–3000 ms sleeps + 40% random 500s",
+    "Pod OOMKilled (exit code 137) repeatedly",
+    "High error rate and latency observed between restarts",
+    "Single workflow dispatch triggered all three conditions at once"
+  ],
+  "evidence": [
+    "Pod exit code 137 (OOMKilled) on multiple pods",
+    "Kubernetes event: OOMKilling — memory limit 128Mi exceeded",
+    "Prometheus P99 latency > 2000 ms between restarts",
+    "Prometheus error rate > 40% between restarts",
+    "Application log: 'OOM leak: allocated chunk' repeating",
+    "FAULT environment contains oom+latency (or multi-fault config)",
+    "Deployment manifest: memory limit changed from 256Mi to 128Mi",
+    "GitHub Actions deploy job inputs: memory_limit=128Mi, fault=oom"
+  ],
+  "agents_consulted": ["cicd_analyzer", "kubernetes_analyzer", "observability_analyzer"],
+  "expected_confidence": 0.82,
+  "remediation": {
+    "recommendation": "Roll back the deployment to the previous memory limit (256Mi) and clear both fault flags.",
+    "steps": [
+      "kubectl rollout undo deployment/shoplite -n shoplite",
+      "Set FAULT=none in the ConfigMap and redeploy",
+      "Restore memory limit to 256Mi in deployment.yaml",
+      "Verify zero OOMKilled events and P99 latency < 200 ms",
+      "Add memory-based HPA and latency alerting rules"
+    ],
+    "priority": "high",
+    "estimated_effort": "medium",
+    "risk_level": "low"
+  }
+}

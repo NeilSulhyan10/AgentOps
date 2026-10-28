@@ -1,0 +1,32 @@
+{
+  "incident_id": "incident-003",
+  "root_cause": "Upgrading pyjwt from 2.8.0 to 3.0.0 removed the PyJWT import used by auth/tokens.py, so the integration tests failed at import time and the release was blocked. Production is unaffected.",
+  "root_cause_type": "dependency_issue",
+  "contributing_factors": [
+    "pyjwt major version bump 2.8.0 -> 3.0.0",
+    "Code still imports the removed PyJWT name",
+    "Dependency pinned by major version without compatibility check"
+  ],
+  "evidence": [
+    "Deployment status failed",
+    "Dependency change pyjwt 2.8.0 -> 3.0.0",
+    "ImportError: cannot import name PyJWT",
+    "Production pods healthy"
+  ],
+  "agents_consulted": [
+    "cicd_analyzer",
+    "dependency_analyzer"
+  ],
+  "expected_confidence": 0.85,
+  "remediation": {
+    "recommendation": "Pin pyjwt below 3.0 or migrate auth/tokens.py to the 3.x API",
+    "steps": [
+      "Pin pyjwt<3 in requirements.txt",
+      "Re-run the pipeline",
+      "Plan the 3.x migration separately"
+    ],
+    "priority": "medium",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

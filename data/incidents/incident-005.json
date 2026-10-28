@@ -1,0 +1,21 @@
+{
+  "incident_id": "incident-005",
+  "status": "open",
+  "title": "Orders API failing: cannot connect to database",
+  "description": "orders-api returns 500 on most requests since 2024-02-09T15:02:00Z. Application logs show connection refused to the database. A deployment completed two hours earlier without issues. Service: orders-api, namespace: production.",
+  "severity": "critical",
+  "source": "prometheus-alert",
+  "service_name": "orders-api",
+  "namespace": "production",
+  "started_at": "2024-02-09T15:02:00Z",
+  "detected_at": "2024-02-09T15:03:00Z",
+  "metadata": {
+    "alert_name": "OrdersApiHighErrorRate",
+    "error_rate": 72
+  },
+  "tags": [
+    "orders",
+    "database",
+    "5xx"
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "pods": [
+    {
+      "name": "auth-service-6c9d8f7b4-a1x9k",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "140Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "180m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-01T16:00:00Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container auth-service",
+          "timestamp": "2024-02-01T16:00:05Z"
+        }
+      ]
+    },
+    {
+      "name": "auth-service-6c9d8f7b4-b2y8m",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "140Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "180m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-01T16:00:00Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container auth-service",
+          "timestamp": "2024-02-01T16:00:05Z"
+        }
+      ]
+    },
+    {
+      "name": "auth-service-6c9d8f7b4-c3z7n",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "140Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "180m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-01T16:00:00Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container auth-service",
+          "timestamp": "2024-02-01T16:00:05Z"
+        }
+      ]
+    }
+  ]
+}

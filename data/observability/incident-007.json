@@ -1,0 +1,34 @@
+{
+  "latency": {
+    "p50": 25,
+    "p95": 40,
+    "p99": 60,
+    "unit": "ms",
+    "timestamp": "2024-02-14T10:04:00Z",
+    "service": "inventory-service"
+  },
+  "error_rate": {
+    "rate": 0.4,
+    "count": 16,
+    "total_requests": 4000,
+    "timestamp": "2024-02-14T10:04:00Z",
+    "service": "inventory-service",
+    "error_codes": {
+      "503": 16
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-02-14T10:01:00Z",
+      "level": "WARN",
+      "message": "GET /health/ready 404 not found (route is /healthz)",
+      "service": "inventory-service"
+    },
+    {
+      "timestamp": "2024-02-14T10:01:05Z",
+      "level": "INFO",
+      "message": "Application started and serving requests on :8080",
+      "service": "inventory-service"
+    }
+  ]
+}

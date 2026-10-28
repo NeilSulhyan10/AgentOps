@@ -22,10 +22,6 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create non-root user
-RUN addgroup -g 1000 -S nginx && \
-    adduser -u 1000 -S nginx -G nginx
-
 # Expose port
 EXPOSE 3000
 

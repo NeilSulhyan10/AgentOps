@@ -1,0 +1,26 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "deploy-701",
+      "timestamp": "2024-02-14T10:00:00Z",
+      "service": "inventory-service",
+      "namespace": "production",
+      "image": "inventory-service:v2.1.0",
+      "previous_image": "inventory-service:v2.0.9",
+      "strategy": "rolling",
+      "replicas": 3,
+      "status": "success"
+    }
+  ],
+  "code_changes": [],
+  "config_changes": [
+    {
+      "key": "readinessProbe.httpGet.path",
+      "old_value": "/healthz",
+      "new_value": "/health/ready",
+      "timestamp": "2024-02-14T09:55:00Z",
+      "changed_by": "devops-team"
+    }
+  ],
+  "dependency_changes": []
+}

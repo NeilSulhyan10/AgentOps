@@ -3,7 +3,6 @@ from backend.models import (
     InvestigationState,
     RootCauseAnalysis,
     RemediationRecommendation,
-    AgentType,
     HypothesisType,
     AgentFinding,
     Evidence,
@@ -15,7 +14,7 @@ from backend.models import (
 DEFAULT_CONFIDENCE_THRESHOLD = 0.75
 
 
-def calculate_overall_confidence(agent_confidences: Dict[AgentType, float]) -> float:
+def calculate_overall_confidence(agent_confidences: Dict[str, float]) -> float:
     if not agent_confidences:
         return 0.0
 

@@ -1,0 +1,26 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "deploy-501",
+      "timestamp": "2024-02-09T13:00:00Z",
+      "service": "orders-api",
+      "namespace": "production",
+      "image": "orders-api:v3.0.2",
+      "previous_image": "orders-api:v3.0.1",
+      "strategy": "rolling",
+      "replicas": 4,
+      "status": "success"
+    }
+  ],
+  "code_changes": [
+    {
+      "file": "src/orders/pricing.py",
+      "description": "Rounded totals to two decimals",
+      "author": "dev-team",
+      "commit": "c4d5e6f",
+      "timestamp": "2024-02-09T12:20:00Z"
+    }
+  ],
+  "config_changes": [],
+  "dependency_changes": []
+}

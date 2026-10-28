@@ -1,0 +1,46 @@
+{
+  "pods": [
+    {
+      "name": "search-service-6d5f7c8b9-r1s2t",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 1,
+      "exit_code": 0,
+      "memory_usage": "1002Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "980m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-12T02:10:00Z",
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "Warning",
+          "message": "Container search-service memory usage at 98% of limit",
+          "timestamp": "2024-02-12T08:28:00Z"
+        }
+      ]
+    },
+    {
+      "name": "search-service-6d5f7c8b9-u3v4w",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "996Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "960m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-12T02:10:05Z",
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "Warning",
+          "message": "Container search-service memory usage at 97% of limit",
+          "timestamp": "2024-02-12T08:29:00Z"
+        }
+      ]
+    }
+  ]
+}

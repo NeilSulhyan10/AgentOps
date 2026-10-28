@@ -1,0 +1,61 @@
+{
+  "pods": [
+    {
+      "name": "shoplite-5c7f6d8a1-cc3z1",
+      "namespace": "shoplite",
+      "status": "CrashLoopBackOff",
+      "ready": false,
+      "restart_count": 14,
+      "exit_code": 1,
+      "memory_usage": "10Mi",
+      "memory_limit": "256Mi",
+      "cpu_usage": "5m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-04T12:01:00Z",
+      "last_termination_reason": "Error",
+      "last_termination_exit_code": 1,
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container shoplite",
+          "timestamp": "2024-06-04T12:05:00Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Failed",
+          "message": "Error: failed to create containerd task: startup error exit status 1",
+          "timestamp": "2024-06-04T12:01:10Z"
+        }
+      ]
+    },
+    {
+      "name": "shoplite-5c7f6d8a1-dd4w2",
+      "namespace": "shoplite",
+      "status": "CrashLoopBackOff",
+      "ready": false,
+      "restart_count": 13,
+      "exit_code": 1,
+      "memory_usage": "10Mi",
+      "memory_limit": "256Mi",
+      "cpu_usage": "5m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-04T12:01:05Z",
+      "last_termination_reason": "Error",
+      "last_termination_exit_code": 1,
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container shoplite",
+          "timestamp": "2024-06-04T12:05:10Z"
+        }
+      ]
+    }
+  ],
+  "node_info": {
+    "node_name": "kind-worker",
+    "memory_capacity": "8Gi",
+    "memory_allocatable": "7Gi"
+  }
+}

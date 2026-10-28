@@ -1,72 +1,115 @@
-from typing import List, Optional
+"""
+Deterministic Router (fallback)
+
+Used when the LLM router returns an agent name that is not in the available
+pool.  Works entirely with plain strings so it handles both built-in agents
+and dynamically discovered ones.
+"""
+
+from typing import List, Optional, Tuple
 from backend.models import (
     InvestigationState,
-    AgentType,
     HypothesisType,
     RoutingDecision,
-    Evidence
 )
 
+# Map evidence gap names → preferred agent name (md file stem)
+_GAP_AGENT_MAP: dict[str, str] = {
+    "deployment_details": "cicd_analyzer",
+    "configuration_changes": "cicd_analyzer",
+    "pod_memory_status": "kubernetes_analyzer",
+    "pod_restart_pattern": "kubernetes_analyzer",
+    "resource_pressure": "kubernetes_analyzer",
+    "observability_metrics": "observability_analyzer",
+    "error_patterns": "observability_analyzer",
+    "trace_analysis": "observability_analyzer",
+    "dependency_health": "dependency_analyzer",
+    "traffic_pattern": "traffic_analyzer",
+}
 
-def select_next_agent(investigation: InvestigationState) -> tuple[AgentType, str]:
-    agents_invoked = investigation.agents_invoked
-    evidence_gaps = investigation.evidence_gaps
-    current_hypothesis = investigation.current_hypothesis
-    available_agents = [a for a in AgentType if a not in agents_invoked]
+# Map hypothesis → preferred agent name
+_HYPOTHESIS_AGENT_MAP: dict[HypothesisType, str] = {
+    HypothesisType.DEPLOYMENT_INDUCED_FAILURE: "cicd_analyzer",
+    HypothesisType.KUBERNETES_OOM: "kubernetes_analyzer",
+    HypothesisType.TRAFFIC_INCIDENT: "observability_analyzer",
+    HypothesisType.APPLICATION_ERROR: "observability_analyzer",
+    HypothesisType.CONFIGURATION_ERROR: "config_analyzer",
+    HypothesisType.DEPENDENCY_ISSUE: "dependency_analyzer",
+}
 
+
+def select_next_agent(
+    investigation: InvestigationState,
+    available_agents: List[str],
+) -> Tuple[str, str]:
+    """
+    Deterministic agent selection used as LLM-router fallback.
+
+    Parameters
+    ----------
+    investigation:
+        Current investigation state.
+    available_agents:
+        List of agent name strings that may be selected (md file stems,
+        e.g. "cicd_analyzer").  Must be non-empty.
+
+    Returns
+    -------
+    (selected_agent_name, reasoning)
+    """
     if not available_agents:
-        available_agents = list(AgentType)
+        raise ValueError("available_agents must be non-empty")
 
-    selected_agent = available_agents[0]
-    selected_agent_str = selected_agent if isinstance(selected_agent, AgentType) else selected_agent
-    reasoning = f"Default selection: {selected_agent_str}"
+    agents_invoked: List[str] = investigation.agents_invoked
+    evidence_gaps: List[str] = investigation.evidence_gaps
+    current_hypothesis = investigation.current_hypothesis
 
-    gap_agent_map = {
-        "deployment_details": AgentType.CICD,
-        "configuration_changes": AgentType.CICD,
-        "pod_memory_status": AgentType.KUBERNETES,
-        "pod_restart_pattern": AgentType.KUBERNETES,
-        "resource_pressure": AgentType.KUBERNETES,
-        "observability_metrics": AgentType.OBSERVABILITY,
-        "error_patterns": AgentType.OBSERVABILITY,
-        "trace_analysis": AgentType.OBSERVABILITY
-    }
+    selected = available_agents[0]
+    reasoning = f"Default selection: {selected}"
 
+    # 1. Evidence-gap based selection
     for gap in evidence_gaps:
-        if gap in gap_agent_map and gap_agent_map[gap] in available_agents:
-            selected_agent = gap_agent_map[gap]
-            selected_agent_str = selected_agent if isinstance(selected_agent, AgentType) else selected_agent
-            reasoning = f"Evidence gap '{gap}' maps to {selected_agent_str} agent"
+        preferred = _GAP_AGENT_MAP.get(gap)
+        if preferred and preferred in available_agents:
+            selected = preferred
+            reasoning = f"Evidence gap '{gap}' maps to {preferred}"
             break
 
-    if current_hypothesis == HypothesisType.DEPLOYMENT_INDUCED_FAILURE and AgentType.CICD in available_agents:
-        selected_agent = AgentType.CICD
-        reasoning = "Hypothesis suggests deployment-induced failure, prioritizing CI/CD agent"
-    elif current_hypothesis == HypothesisType.KUBERNETES_OOM and AgentType.KUBERNETES in available_agents:
-        selected_agent = AgentType.KUBERNETES
-        reasoning = "Hypothesis suggests Kubernetes OOM, prioritizing Kubernetes agent"
-    elif current_hypothesis == HypothesisType.TRAFFIC_INCIDENT and AgentType.OBSERVABILITY in available_agents:
-        selected_agent = AgentType.OBSERVABILITY
-        reasoning = "Hypothesis suggests traffic incident, prioritizing Observability agent"
+    # 2. Hypothesis-based override
+    if current_hypothesis:
+        preferred = _HYPOTHESIS_AGENT_MAP.get(current_hypothesis)
+        if preferred and preferred in available_agents:
+            selected = preferred
+            reasoning = (
+                f"Hypothesis '{current_hypothesis}' maps to {preferred}"
+            )
 
-    recent_findings = investigation.agent_findings[-2:] if investigation.agent_findings else []
-    for finding in recent_findings:
-        if finding.hypothesis == HypothesisType.KUBERNETES_OOM and AgentType.KUBERNETES in available_agents:
-            selected_agent = AgentType.KUBERNETES
-            reasoning = "Previous finding suggests Kubernetes issue, investigating further"
-            break
-        elif finding.hypothesis == HypothesisType.DEPLOYMENT_INDUCED_FAILURE and AgentType.CICD in available_agents:
-            selected_agent = AgentType.CICD
-            reasoning = "Previous finding suggests deployment issue, investigating further"
+    # 3. Recent findings hint
+    for finding in reversed(investigation.agent_findings[-2:]):
+        hint = _HYPOTHESIS_AGENT_MAP.get(finding.hypothesis)
+        if hint and hint in available_agents:
+            selected = hint
+            reasoning = (
+                f"Recent finding suggests {finding.hypothesis}; "
+                f"routing to {hint}"
+            )
             break
 
-    return selected_agent, reasoning
+    # 4. A pending critic challenge outranks everything else
+    if investigation.critic_reviews:
+        last = investigation.critic_reviews[-1]
+        if last.verdict == "challenged" and last.suggested_agent in available_agents:
+            selected = last.suggested_agent
+            reasoning = f"Critic challenged the conclusion and suggested {selected}"
+
+    return selected, reasoning
 
 
 def create_routing_decision(
     investigation: InvestigationState,
-    selected_agent: AgentType,
-    reasoning: str
+    selected_agent: str,
+    reasoning: str,
+    available_agents: List[str],
 ) -> RoutingDecision:
     return RoutingDecision(
         investigation_id=investigation.investigation_id,
@@ -74,7 +117,7 @@ def create_routing_decision(
         current_hypothesis=investigation.current_hypothesis,
         evidence_gaps=investigation.evidence_gaps,
         agents_invoked=investigation.agents_invoked,
-        available_agents=[a for a in AgentType if a not in investigation.agents_invoked] or list(AgentType),
+        available_agents=available_agents,
         selected_agent=selected_agent,
-        reasoning=reasoning
+        reasoning=reasoning,
     )

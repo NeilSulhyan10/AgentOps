@@ -13,7 +13,6 @@ from backend.models import (
     Incident,
     IncidentSeverity,
     IncidentStatus,
-    AgentType,
     HypothesisType,
     InvestigationStatus
 )
@@ -60,14 +59,13 @@ async def test_create_initial_state(sample_incident):
 @pytest.mark.asyncio
 async def test_calculate_overall_confidence():
     from backend.orchestrator.confidence import calculate_overall_confidence
-    from backend.models import AgentType
-    
-    confidence = calculate_overall_confidence({AgentType.CICD: 0.9, AgentType.KUBERNETES: 0.85})
+
+    confidence = calculate_overall_confidence({"cicd_analyzer": 0.9, "kubernetes_analyzer": 0.85})
     assert 0.9 <= confidence <= 1.0
-    
-    confidence = calculate_overall_confidence({AgentType.CICD: 0.5})
+
+    confidence = calculate_overall_confidence({"cicd_analyzer": 0.5})
     assert confidence == 0.5
-    
+
     confidence = calculate_overall_confidence({})
     assert confidence == 0.0
 
@@ -81,8 +79,7 @@ async def test_calculate_overall_confidence_empty():
 @pytest.mark.asyncio
 async def test_calculate_overall_confidence_single():
     from backend.orchestrator.confidence import calculate_overall_confidence
-    from backend.models import AgentType
-    assert calculate_overall_confidence({"cicd": 0.9}) == 0.9
+    assert calculate_overall_confidence({"cicd_analyzer": 0.9}) == 0.9
 
 
 @pytest.mark.asyncio
@@ -121,14 +118,14 @@ async def test_state_manager(investigation_state):
 async def test_investigation_graph(sample_incident, monkeypatch):
     # Mock the get_cicd_evidence_from_github function to return mock evidence
     # This avoids making real GitHub API calls during testing
-    from backend.models import Evidence, AgentType, EvidenceType
+    from backend.models import Evidence, EvidenceType
     from datetime import datetime
-    
+
     async def mock_get_cicd_evidence(incident):
         return [
             Evidence(
                 investigation_id="",
-                agent_type=AgentType.CICD,
+                agent_type="cicd_analyzer",
                 evidence_type=EvidenceType.DEPLOYMENT,
                 description="Deployment deploy-12345 at 2024-01-15T10:28:00Z",
                 raw_data={"deployment_id": "deploy-12345", "timestamp": "2024-01-15T10:28:00Z"},
@@ -137,7 +134,7 @@ async def test_investigation_graph(sample_incident, monkeypatch):
             ),
             Evidence(
                 investigation_id="",
-                agent_type=AgentType.CICD,
+                agent_type="cicd_analyzer",
                 evidence_type=EvidenceType.CODE_CHANGE,
                 description="Code change in config/memory.js: Reduced memory limit from 1Gi to 512Mi",
                 raw_data={"file": "config/memory.js", "description": "Reduced memory limit from 1Gi to 512Mi"},
@@ -146,7 +143,7 @@ async def test_investigation_graph(sample_incident, monkeypatch):
             ),
             Evidence(
                 investigation_id="",
-                agent_type=AgentType.CICD,
+                agent_type="cicd_analyzer",
                 evidence_type=EvidenceType.CONFIG_CHANGE,
                 description="Config change: resources.limits.memory = 512Mi",
                 raw_data={"key": "resources.limits.memory", "old_value": "1Gi", "new_value": "512Mi"},
@@ -252,13 +249,12 @@ def test_generate_remediation(investigation_state):
 
 def test_calculate_overall_confidence():
     from backend.orchestrator.confidence import calculate_overall_confidence
-    from backend.models import AgentType
-    
-    confidence = calculate_overall_confidence({AgentType.CICD: 0.8, AgentType.KUBERNETES: 0.9})
+
+    confidence = calculate_overall_confidence({"cicd_analyzer": 0.8, "kubernetes_analyzer": 0.9})
     assert confidence > 0.8
-    
-    confidence = calculate_overall_confidence({AgentType.CICD: 0.5})
+
+    confidence = calculate_overall_confidence({"cicd_analyzer": 0.5})
     assert confidence == 0.5
-    
+
     confidence = calculate_overall_confidence({})
     assert confidence == 0.0

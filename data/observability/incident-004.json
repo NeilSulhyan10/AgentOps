@@ -1,0 +1,45 @@
+{
+  "latency": {
+    "p50": 40,
+    "p95": 120,
+    "p99": 400,
+    "unit": "ms",
+    "timestamp": "2024-02-05T11:13:00Z",
+    "service": "checkout-service"
+  },
+  "error_rate": {
+    "rate": 61.0,
+    "count": 2440,
+    "total_requests": 4000,
+    "timestamp": "2024-02-05T11:13:00Z",
+    "service": "checkout-service",
+    "error_codes": {
+      "502": 1600,
+      "503": 840
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-02-05T11:10:31Z",
+      "level": "ERROR",
+      "message": "Startup failed: required environment variable PAYMENT_GATEWAY_URL is not set",
+      "service": "checkout-service",
+      "pod": "checkout-service-5f7c9d8b6-k4t2p"
+    },
+    {
+      "timestamp": "2024-02-05T11:10:31Z",
+      "level": "ERROR",
+      "message": "Process exited with code 1 during initialisation",
+      "service": "checkout-service"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-02-05T11:10:31Z",
+      "error": "RuntimeError: PAYMENT_GATEWAY_URL is not set",
+      "service": "checkout-service",
+      "pod": "checkout-service-5f7c9d8b6-k4t2p",
+      "trace": "RuntimeError: PAYMENT_GATEWAY_URL is not set\n\tat src/checkout/settings.py:21\n\tat src/checkout/main.py:8"
+    }
+  ]
+}

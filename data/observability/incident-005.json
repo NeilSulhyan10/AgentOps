@@ -1,0 +1,82 @@
+{
+  "latency": {
+    "p50": 60,
+    "p95": 5000,
+    "p99": 30000,
+    "unit": "ms",
+    "timestamp": "2024-02-09T15:03:00Z",
+    "service": "orders-api"
+  },
+  "error_rate": {
+    "rate": 72.0,
+    "count": 2880,
+    "total_requests": 4000,
+    "timestamp": "2024-02-09T15:03:00Z",
+    "service": "orders-api",
+    "error_codes": {
+      "500": 2880
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-02-09T15:02:03Z",
+      "level": "ERROR",
+      "message": "Could not connect to database host db-primary.internal:5432: connection refused",
+      "service": "orders-api"
+    },
+    {
+      "timestamp": "2024-02-09T15:02:09Z",
+      "level": "ERROR",
+      "message": "Database connection pool exhausted after repeated connection refused errors",
+      "service": "orders-api"
+    },
+    {
+      "timestamp": "2024-02-09T15:01:40Z",
+      "level": "WARN",
+      "message": "db-primary.internal failover started: primary became unreachable",
+      "service": "db-proxy"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-02-09T15:02:03Z",
+      "error": "psycopg2.OperationalError: connection refused",
+      "service": "orders-api",
+      "trace": "psycopg2.OperationalError: could not connect to server: Connection refused\n\tat db/pool.py:55\n\tat orders/repository.py:31"
+    }
+  ],
+  "traces": [
+    {
+      "trace_id": "c5d6e7f8a9b0",
+      "span_id": "0b9a8f7e6d5c",
+      "parent_span_id": null,
+      "service": "orders-api",
+      "operation": "POST /api/v1/orders",
+      "duration": 30000,
+      "status": "error",
+      "error": "db_connection_refused",
+      "timestamp": "2024-02-09T15:02:10Z",
+      "tags": {
+        "http.status_code": 500,
+        "http.method": "POST",
+        "http.url": "/api/v1/orders"
+      }
+    },
+    {
+      "trace_id": "d6e7f8a9b0c1",
+      "span_id": "1c0b9a8f7e6d",
+      "parent_span_id": null,
+      "service": "orders-api",
+      "operation": "POST /api/v1/orders",
+      "duration": 29800,
+      "status": "error",
+      "error": "db_connection_refused",
+      "timestamp": "2024-02-09T15:02:20Z",
+      "tags": {
+        "http.status_code": 500,
+        "http.method": "POST",
+        "http.url": "/api/v1/orders"
+      }
+    }
+  ]
+}

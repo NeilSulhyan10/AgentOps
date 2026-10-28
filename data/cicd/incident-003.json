@@ -1,0 +1,33 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "deploy-301",
+      "timestamp": "2024-02-02T09:41:00Z",
+      "service": "auth-service",
+      "namespace": "production",
+      "image": "auth-service:v4.2.0",
+      "previous_image": "auth-service:v4.1.3",
+      "strategy": "rolling",
+      "replicas": 3,
+      "status": "failed"
+    }
+  ],
+  "code_changes": [
+    {
+      "file": "requirements.txt",
+      "description": "Bumped PyJWT to the 3.x line",
+      "author": "dev-team",
+      "commit": "a1b2c3d",
+      "timestamp": "2024-02-02T09:20:00Z"
+    }
+  ],
+  "config_changes": [],
+  "dependency_changes": [
+    {
+      "name": "pyjwt",
+      "old_version": "2.8.0",
+      "new_version": "3.0.0",
+      "timestamp": "2024-02-02T09:20:00Z"
+    }
+  ]
+}

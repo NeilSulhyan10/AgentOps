@@ -1,6 +1,21 @@
-version: '3.8'
-
 services:
+  mongodb:
+    image: mongo:7.0
+    container_name: agentops-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - agentops-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   backend:
     build:
       context: .
@@ -12,8 +27,8 @@ services:
     environment:
       - APP_ENV=production
       - DEBUG=false
-      - MONGODB_URI=${MONGODB_URI}
-      - MONGODB_DATABASE=${MONGODB_DATABASE}
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017}
+      - MONGODB_DATABASE=${MONGODB_DATABASE:-agentops}
       - LLM_PROVIDER=nemotron
       - NEMOTRON_API_KEY=${NEMOTRON_API_KEY}
       - NEMOTRON_API_URL=https://integrate.api.nvidia.com/v1
@@ -22,14 +37,23 @@ services:
       - CONFIDENCE_THRESHOLD=0.75
       - ENABLE_LLM_ROUTING=true
       - DATA_DIR=/app/data
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_OWNER=${GITHUB_OWNER}
+      - GITHUB_REPO=${GITHUB_REPO}
+      - GITHUB_BRANCH=${GITHUB_BRANCH}
+      - GITHUB_TIME_WINDOW_HOURS=${GITHUB_TIME_WINDOW_HOURS:-24}
+      - GITHUB_POLL_INTERVAL_SECONDS=${GITHUB_POLL_INTERVAL_SECONDS:-60}
     volumes:
       - ./data:/app/data:ro
+    depends_on:
+      mongodb:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
     networks:
       - agentops-network
     deploy:
@@ -52,7 +76,8 @@ services:
     environment:
       - VITE_API_URL=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
       interval: 30s
@@ -73,3 +98,6 @@ services:
 networks:
   agentops-network:
     driver: bridge
+
+volumes:
+  mongodb_data:

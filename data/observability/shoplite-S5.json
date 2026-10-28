@@ -1,0 +1,82 @@
+{
+  "latency": {
+    "p50": 8,
+    "p95": 12,
+    "p99": 18,
+    "unit": "ms",
+    "timestamp": "2024-06-05T14:35:00Z",
+    "service": "shoplite",
+    "note": "Low latency — app responds immediately with 503, no slow paths"
+  },
+  "error_rate": {
+    "rate": 100.0,
+    "count": 600,
+    "total_requests": 600,
+    "timestamp": "2024-06-05T14:35:00Z",
+    "service": "shoplite",
+    "error_codes": {
+      "503": 600
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-06-05T14:35:01Z",
+      "level": "ERROR",
+      "message": "Database unreachable — cannot load products",
+      "service": "shoplite",
+      "request_id": "n/a",
+      "route": "/products",
+      "latency_ms": 0,
+      "error": "db_unreachable"
+    },
+    {
+      "timestamp": "2024-06-05T14:35:02Z",
+      "level": "ERROR",
+      "message": "Database unreachable — cannot persist order",
+      "service": "shoplite",
+      "request_id": "n/a",
+      "route": "/orders",
+      "latency_ms": 0,
+      "error": "db_unreachable"
+    },
+    {
+      "timestamp": "2024-06-05T14:35:03Z",
+      "level": "ERROR",
+      "message": "GET /products → 503",
+      "service": "shoplite",
+      "request_id": "req-db-001",
+      "route": "/products",
+      "latency_ms": 6,
+      "status_code": 503,
+      "error": "http_error"
+    },
+    {
+      "timestamp": "2024-06-05T14:35:04Z",
+      "level": "ERROR",
+      "message": "GET /health → 503",
+      "service": "shoplite",
+      "request_id": "req-db-002",
+      "route": "/health",
+      "latency_ms": 4,
+      "status_code": 503,
+      "error": "http_error"
+    }
+  ],
+  "stack_traces": [],
+  "traces": [
+    {
+      "trace_id": "db-trace-001",
+      "service": "shoplite",
+      "operation": "GET /products",
+      "duration": 6,
+      "status": "error",
+      "error": "database_unreachable",
+      "timestamp": "2024-06-05T14:35:03Z",
+      "tags": {
+        "http.status_code": 503,
+        "error.type": "dependency_failure",
+        "db.system": "postgresql"
+      }
+    }
+  ]
+}

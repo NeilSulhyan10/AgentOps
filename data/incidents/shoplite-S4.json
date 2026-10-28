@@ -1,0 +1,21 @@
+{
+  "incident_id": "shoplite-S4",
+  "title": "ShopLite CrashLoopBackOff — startup failing due to missing env var",
+  "description": "All shoplite pods are in CrashLoopBackOff. Containers exit with code 1 immediately after startup. Logs show 'REQUIRED_SECRET env var is not set — startup aborted'. The deploy workflow was run with break_config=true, which omitted the Kubernetes Secret containing REQUIRED_SECRET. FAULT=bad_config is active.",
+  "severity": "critical",
+  "status": "open",
+  "source": "kubernetes-event",
+  "service_name": "shoplite",
+  "namespace": "shoplite",
+  "started_at": "2024-06-04T12:01:00Z",
+  "detected_at": "2024-06-04T12:01:00Z",
+  "metadata": {
+    "alert_name": "ShopliteCrashLoopBackOff",
+    "pod_restart_count": 14,
+    "exit_code": 1,
+    "fault": "bad_config",
+    "missing_env_var": "REQUIRED_SECRET",
+    "break_config": "true"
+  },
+  "tags": ["config-error", "crashloop", "kubernetes", "shoplite"]
+}

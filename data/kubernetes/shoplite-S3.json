@@ -1,0 +1,49 @@
+{
+  "pods": [
+    {
+      "name": "shoplite-7d9f8e5b3-aa1x1",
+      "namespace": "shoplite",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "55Mi",
+      "memory_limit": "256Mi",
+      "cpu_usage": "180m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-03T11:01:00Z",
+      "last_termination_reason": null,
+      "last_termination_exit_code": null,
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container shoplite",
+          "timestamp": "2024-06-03T11:01:05Z"
+        }
+      ]
+    },
+    {
+      "name": "shoplite-7d9f8e5b3-bb2y2",
+      "namespace": "shoplite",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "53Mi",
+      "memory_limit": "256Mi",
+      "cpu_usage": "175m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-03T11:01:02Z",
+      "last_termination_reason": null,
+      "last_termination_exit_code": null,
+      "events": []
+    }
+  ],
+  "node_info": {
+    "node_name": "kind-worker",
+    "memory_capacity": "8Gi",
+    "memory_allocatable": "7Gi"
+  },
+  "note": "Pods are running — the latency/500 fault is application-level, not OOM."
+}

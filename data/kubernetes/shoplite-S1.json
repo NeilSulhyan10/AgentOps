@@ -1,0 +1,9 @@
+{
+  "pods": [],
+  "node_info": {
+    "node_name": "kind-worker",
+    "memory_capacity": "8Gi",
+    "memory_allocatable": "7Gi"
+  },
+  "note": "S1 failure is pre-deploy (CI test stage). No pods were created for the failing image."
+}

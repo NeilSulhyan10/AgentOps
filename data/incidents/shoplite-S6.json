@@ -1,0 +1,22 @@
+{
+  "incident_id": "shoplite-S6",
+  "title": "ShopLite multi-layer failure — OOMKilled pods, high latency, high error rate",
+  "description": "ShopLite is experiencing simultaneous OOMKill events (exit code 137, 128Mi limit), P99 latency above 3000ms, and error rate above 78%. The last deployment changed memory limit from 256Mi to 128Mi and activated FAULT=oom. Between restarts, FAULT=oom also injects latency and random 500s. All three failure layers originated from one deploy workflow run.",
+  "severity": "critical",
+  "status": "open",
+  "source": "prometheus-alert",
+  "service_name": "shoplite",
+  "namespace": "shoplite",
+  "started_at": "2024-06-06T14:02:00Z",
+  "detected_at": "2024-06-06T14:02:00Z",
+  "metadata": {
+    "alert_name": "ShopliteMultiLayerFailure",
+    "exit_code": 137,
+    "memory_limit": "128Mi",
+    "p99_latency_ms": 3000,
+    "error_rate": 78.3,
+    "fault": "oom",
+    "workflow_run_id": "9999000006"
+  },
+  "tags": ["oom", "latency", "multi-layer", "kubernetes", "shoplite"]
+}

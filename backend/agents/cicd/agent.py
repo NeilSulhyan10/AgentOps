@@ -2,16 +2,17 @@ from typing import List, Dict, Any
 from backend.models import (
     Incident,
     AgentFinding,
-    AgentType,
     HypothesisType,
     Evidence
 )
-# from backend.tools.data_access import get_cicd_evidence
 
 
 class CICDAgent:
+    # Agent name matches the md file stem used by AgentRunner
+    AGENT_NAME = "cicd_analyzer"
+
     def __init__(self):
-        self.agent_type = AgentType.CICD
+        self.agent_type = self.AGENT_NAME
 
     def investigate(self, incident: Incident, existing_evidence: List[Evidence]) -> AgentFinding:
         # Use the passed evidence instead of loading from fixtures

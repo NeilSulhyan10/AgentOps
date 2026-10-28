@@ -1,0 +1,24 @@
+{
+  "incident_id": "shoplite-S7",
+  "root_cause": "No fault is active. The service is operating normally. All endpoints return expected status codes, latency is within normal bounds, and no pods have restarted. AgentOps should find no evidence of a root cause and should not invent one.",
+  "root_cause_type": "unknown",
+  "contributing_factors": [],
+  "evidence": [
+    "GET /health returns HTTP 200 with status=ok",
+    "GET /products returns HTTP 200 with product list",
+    "POST /orders returns HTTP 201",
+    "Prometheus error rate < 0.1%",
+    "Prometheus P99 latency < 100 ms",
+    "No pod restarts in the last 30 minutes",
+    "FAULT=none in /version response"
+  ],
+  "agents_consulted": [],
+  "expected_confidence": 0.0,
+  "remediation": {
+    "recommendation": "No action required. The service is healthy.",
+    "steps": [],
+    "priority": "low",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

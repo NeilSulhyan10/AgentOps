@@ -1,0 +1,17 @@
+{
+  "incident_id": "shoplite-S7",
+  "title": "ShopLite routine health check — no anomalies detected",
+  "description": "Routine AgentOps evaluation run on a healthy shoplite deployment. FAULT=none. All pods running and ready. Error rate 0%, P99 latency 14ms. No recent config changes or deployments. Expected outcome: AgentOps finds no root cause.",
+  "severity": "low",
+  "status": "open",
+  "source": "manual-evaluation",
+  "service_name": "shoplite",
+  "namespace": "shoplite",
+  "started_at": "2024-06-07T09:00:00Z",
+  "detected_at": "2024-06-07T09:00:00Z",
+  "metadata": {
+    "fault": "none",
+    "note": "control scenario — service is healthy"
+  },
+  "tags": ["healthy", "control", "shoplite"]
+}

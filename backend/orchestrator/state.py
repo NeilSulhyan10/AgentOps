@@ -2,9 +2,9 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from backend.models import (
     InvestigationState, Incident, IncidentSeverity, IncidentStatus,
-    AgentType, HypothesisType, InvestigationStatus,
+    HypothesisType, InvestigationStatus,
     Evidence, AgentFinding, RoutingDecision, ConfidenceEntry,
-    RootCauseAnalysis, RemediationRecommendation, EvidenceType
+    RootCauseAnalysis, RemediationRecommendation, EvidenceType, CriticReview
 )
 from backend.models.mongodb import (
     InvestigationDoc, IncidentDoc, EvidenceDoc, AgentFindingDoc,
@@ -251,6 +251,7 @@ class MongoStateManager:
             remediation_id=state.remediation.remediation_id if state.remediation else None,
             routing_decision_ids=decision_ids,
             confidence_entry_ids=confidence_ids,
+            critic_reviews=[r.model_dump(mode="json") for r in state.critic_reviews],
             created_at=state.created_at,
             updated_at=datetime.utcnow(),
             completed_at=state.completed_at,
@@ -317,6 +318,7 @@ class MongoStateManager:
             remediation=remediation,
             routing_decisions=decisions,
             confidence_history=confidence_history,
+            critic_reviews=[CriticReview(**r) for r in doc.critic_reviews],
             created_at=doc.created_at,
             updated_at=doc.updated_at,
             completed_at=doc.completed_at,
@@ -395,6 +397,7 @@ class MongoStateManager:
             doc.remediation_id = new_doc.remediation_id
             doc.routing_decision_ids = new_doc.routing_decision_ids
             doc.confidence_entry_ids = new_doc.confidence_entry_ids
+            doc.critic_reviews = new_doc.critic_reviews
             doc.updated_at = datetime.utcnow()
             doc.completed_at = new_doc.completed_at
             await doc.save()

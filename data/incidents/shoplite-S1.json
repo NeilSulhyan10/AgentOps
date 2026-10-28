@@ -1,0 +1,21 @@
+{
+  "incident_id": "shoplite-S1",
+  "title": "ShopLite CI pipeline failing — tests broken after commit",
+  "description": "The ShopLite CI pipeline's test stage is failing. Two test cases exit non-zero, blocking the build. FLAKY_TESTS=true was set in the workflow dispatch inputs. Service: shoplite, namespace: shoplite. Recent commit badcommit modified tests/test_app.py.",
+  "severity": "high",
+  "status": "open",
+  "source": "github-actions",
+  "service_name": "shoplite",
+  "namespace": "shoplite",
+  "started_at": "2024-06-01T09:01:00Z",
+  "detected_at": "2024-06-01T09:01:00Z",
+  "metadata": {
+    "workflow_run_id": "9999000001",
+    "workflow_name": "ShopLite CI",
+    "failed_job": "test",
+    "git_sha": "badcommit",
+    "fault": "none",
+    "flaky_tests": "true"
+  },
+  "tags": ["ci", "test-failure", "shoplite", "deployment-blocked"]
+}

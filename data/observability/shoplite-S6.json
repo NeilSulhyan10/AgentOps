@@ -1,0 +1,83 @@
+{
+  "latency": {
+    "p50": 1100,
+    "p95": 2600,
+    "p99": 3000,
+    "unit": "ms",
+    "timestamp": "2024-06-06T14:03:00Z",
+    "service": "shoplite",
+    "note": "High latency observed between OOM-kill restarts while pods are briefly alive"
+  },
+  "error_rate": {
+    "rate": 78.3,
+    "count": 940,
+    "total_requests": 1200,
+    "timestamp": "2024-06-06T14:03:00Z",
+    "service": "shoplite",
+    "error_codes": {
+      "500": 940
+    },
+    "note": "Very high error rate: mix of injected 500s (latency fault) and connection resets from OOM kills"
+  },
+  "logs": [
+    {
+      "timestamp": "2024-06-06T14:02:00Z",
+      "level": "WARNING",
+      "message": "OOM leak: allocated chunk",
+      "service": "shoplite",
+      "request_id": "oom-worker",
+      "route": "background",
+      "latency_ms": 0
+    },
+    {
+      "timestamp": "2024-06-06T14:02:15Z",
+      "level": "ERROR",
+      "message": "Container shoplite-9f2c3d1b5-gg7t1 killed by OOMKiller — exit code 137",
+      "service": "shoplite",
+      "pod": "shoplite-9f2c3d1b5-gg7t1",
+      "namespace": "shoplite"
+    },
+    {
+      "timestamp": "2024-06-06T14:02:50Z",
+      "level": "ERROR",
+      "message": "GET /products → 500",
+      "service": "shoplite",
+      "request_id": "req-multi-001",
+      "route": "/products",
+      "latency_ms": 2900,
+      "status_code": 500,
+      "error": "http_error"
+    },
+    {
+      "timestamp": "2024-06-06T14:03:50Z",
+      "level": "ERROR",
+      "message": "Container shoplite-9f2c3d1b5-gg7t1 killed by OOMKiller — exit code 137 (restart 3)",
+      "service": "shoplite",
+      "pod": "shoplite-9f2c3d1b5-gg7t1",
+      "namespace": "shoplite"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-06-06T14:02:50Z",
+      "error": "RuntimeError: Injected 500 under latency fault",
+      "service": "shoplite",
+      "trace": "app/main.py in _maybe_500\n  raise RuntimeError(\"Injected 500 under latency fault\")\nRuntimeError: Injected 500 under latency fault"
+    }
+  ],
+  "traces": [
+    {
+      "trace_id": "multi-trace-001",
+      "service": "shoplite",
+      "operation": "GET /products",
+      "duration": 2900,
+      "status": "error",
+      "error": "injected_500",
+      "timestamp": "2024-06-06T14:02:50Z",
+      "tags": {
+        "http.status_code": 500,
+        "fault": "oom+latency"
+      }
+    }
+  ]
+}

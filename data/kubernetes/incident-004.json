@@ -1,0 +1,58 @@
+{
+  "pods": [
+    {
+      "name": "checkout-service-5f7c9d8b6-k4t2p",
+      "namespace": "production",
+      "status": "CrashLoopBackOff",
+      "ready": false,
+      "restart_count": 14,
+      "exit_code": 1,
+      "memory_usage": "60Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "40m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-05T11:10:30Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Pulled",
+          "message": "Successfully pulled image checkout-service:v1.9.0",
+          "timestamp": "2024-02-05T11:10:25Z"
+        },
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container checkout-service",
+          "timestamp": "2024-02-05T11:10:30Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container checkout-service",
+          "timestamp": "2024-02-05T11:11:30Z"
+        }
+      ]
+    },
+    {
+      "name": "checkout-service-5f7c9d8b6-m8q1w",
+      "namespace": "production",
+      "status": "CrashLoopBackOff",
+      "ready": false,
+      "restart_count": 13,
+      "exit_code": 1,
+      "memory_usage": "58Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "35m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-05T11:10:40Z",
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container checkout-service",
+          "timestamp": "2024-02-05T11:11:40Z"
+        }
+      ]
+    }
+  ]
+}

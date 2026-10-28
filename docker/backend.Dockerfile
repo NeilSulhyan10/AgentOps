@@ -1,15 +1,11 @@
-# Build stage
+# Build stage — installs deps only, no system compiler needed for pure-Python wheels
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies for building
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+# pip, wheel, setuptools — no gcc/python3-dev required for the packages we use
+RUN pip install --no-cache-dir --upgrade pip
 
-# Install Python dependencies
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
@@ -21,12 +17,11 @@ WORKDIR /app
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+# curl for healthcheck — single package, fast
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from builder
+# Copy installed Python packages from builder
 COPY --from=builder /root/.local /home/appuser/.local
 
 # Copy application code
@@ -34,18 +29,14 @@ COPY --chown=appuser:appuser backend/ ./backend/
 COPY --chown=appuser:appuser data/ ./data/
 COPY --chown=appuser:appuser evaluation/ ./evaluation/
 
-# Set PATH to include user packages
 ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
 
-# Switch to non-root user
 USER appuser
 
-# Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run application
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

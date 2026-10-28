@@ -6,9 +6,10 @@ import { Badge } from './ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/Table'
 import { Button } from './ui/Button'
 import { formatIncidentId, formatRelativeTime, truncate } from '../utils/helpers'
-import { AlertTriangle, Search, Plus, Activity, CheckCircle2, Gauge, ListChecks, Eye, Trash2, Loader2, X } from 'lucide-react'
+import { AlertTriangle, Search, Plus, Activity, CheckCircle2, Gauge, ListChecks, Eye, Bug, Trash2, Loader2, X } from 'lucide-react'
 import { cn } from '../utils/helpers'
 import { useNavigate } from 'react-router-dom'
+import { RunIssuesDialog } from './RunIssuesDialog'
 
 export function IncidentList() {
   const navigate = useNavigate()
@@ -19,6 +20,7 @@ export function IncidentList() {
   const [searchQuery, setSearchQuery] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [issuesFor, setIssuesFor] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<InvestigationStatusResponse | null>(null)
 
   const fetchIncidents = async () => {
@@ -79,6 +81,7 @@ export function IncidentList() {
       const query = searchQuery.toLowerCase()
       return (
         incident.incident_id.toLowerCase().includes(query) ||
+        (incident.service_name || '').toLowerCase().includes(query) ||
         formatIncidentId(incident.incident_id).toLowerCase().includes(query) ||
         incident.investigation_id.toLowerCase().includes(query) ||
         (incident.current_hypothesis || '').replace(/_/g, ' ').toLowerCase().includes(query)
@@ -86,6 +89,13 @@ export function IncidentList() {
     }
     return true
   })
+
+  const groupMap = new Map<string, InvestigationStatusResponse[]>()
+  for (const incident of filteredIncidents) {
+    const app = incident.service_name || 'Unknown app'
+    groupMap.set(app, [...(groupMap.get(app) ?? []), incident])
+  }
+  const groups = [...groupMap.entries()].sort(([a], [b]) => a.localeCompare(b))
 
   if (loading) {
     return (
@@ -123,8 +133,8 @@ export function IncidentList() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Incidents</CardTitle>
-          <CardDescription>All reported incidents and their investigation status</CardDescription>
+          <CardTitle>Incidents by app</CardTitle>
+          <CardDescription>Each app's incidents are grouped in their own section</CardDescription>
         </div>
         <div className="flex items-center gap-3">
           <Button onClick={() => navigate('/create')}>
@@ -135,7 +145,7 @@ export function IncidentList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dark-400" />
             <input
               type="text"
-              placeholder="Search incidents..."
+              placeholder="Search incidents or apps..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-10 w-64 pl-10 pr-4 rounded-lg border border-dark-200 bg-white dark:border-dark-700 dark:bg-dark-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -156,7 +166,22 @@ export function IncidentList() {
           </select>
         </div>
       </CardHeader>
-      <CardContent>
+    </Card>
+    {filteredIncidents.length === 0 && (
+      <Card><CardContent className="py-8 text-center text-dark-500">No incidents found</CardContent></Card>
+    )}
+    {groups.map(([app, groupIncidents]) => (
+      <Card key={app} aria-label={`${app} incidents`}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {app}
+            <Badge variant="secondary" className="text-xs">{groupIncidents.length}</Badge>
+          </CardTitle>
+          <CardDescription>
+            {groupIncidents[0].namespace ? `Namespace ${groupIncidents[0].namespace} · ` : ''}incidents for this app
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -172,14 +197,14 @@ export function IncidentList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredIncidents.length === 0 ? (
+              {groupIncidents.length === 0 ? (
                 <TableRow>
                   <TableCell className="text-center py-8 text-dark-500" colSpan={8}>
                     No incidents found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredIncidents.map((incident) => (
+                groupIncidents.map((incident) => (
                   <TableRow key={incident.investigation_id}>
                     <TableCell title={incident.incident_id}>
                       <button
@@ -226,6 +251,16 @@ export function IncidentList() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="h-8 w-8 p-0"
+                        aria-label={`Show issues for ${incident.incident_title || incident.incident_id}`}
+                        title="Show issues in this run"
+                        onClick={() => setIssuesFor(incident.investigation_id)}
+                      >
+                        <Bug className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-8 w-8 p-0 text-red-600 hover:text-red-700 dark:text-red-400"
                         disabled={deletingId !== null}
                         aria-label={`Delete ${incident.incident_title || incident.incident_id}`}
@@ -246,8 +281,16 @@ export function IncidentList() {
             </TableBody>
           </Table>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    ))}
+    {issuesFor && (
+      <RunIssuesDialog
+        investigationId={issuesFor}
+        onClose={() => setIssuesFor(null)}
+        onOpenFull={() => navigate(`/investigation/${issuesFor}`)}
+      />
+    )}
     {deleteTarget && (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"

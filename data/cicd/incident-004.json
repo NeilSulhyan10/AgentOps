@@ -1,0 +1,26 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "deploy-401",
+      "timestamp": "2024-02-05T11:10:00Z",
+      "service": "checkout-service",
+      "namespace": "production",
+      "image": "checkout-service:v1.9.0",
+      "previous_image": "checkout-service:v1.8.4",
+      "strategy": "rolling",
+      "replicas": 3,
+      "status": "success"
+    }
+  ],
+  "code_changes": [
+    {
+      "file": "src/checkout/settings.py",
+      "description": "Require PAYMENT_GATEWAY_URL at startup",
+      "author": "dev-team",
+      "commit": "b7c8d9e",
+      "timestamp": "2024-02-05T10:30:00Z"
+    }
+  ],
+  "config_changes": [],
+  "dependency_changes": []
+}

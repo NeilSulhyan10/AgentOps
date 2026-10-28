@@ -13,7 +13,6 @@ from backend.models import (
     RootCauseAnalysis,
     RemediationRecommendation,
     HypothesisType,
-    AgentType,
     Evidence,
 )
 

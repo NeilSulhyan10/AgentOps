@@ -1,0 +1,39 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "shoplite-deploy-S3",
+      "timestamp": "2024-06-03T11:00:00Z",
+      "service": "shoplite",
+      "namespace": "shoplite",
+      "image": "shoplite:sha-lat001",
+      "previous_image": "shoplite:sha-abc1234",
+      "strategy": "rolling",
+      "replicas": 2,
+      "status": "success"
+    }
+  ],
+  "code_changes": [],
+  "config_changes": [
+    {
+      "key": "FAULT",
+      "old_value": "none",
+      "new_value": "latency",
+      "timestamp": "2024-06-03T11:00:00Z",
+      "changed_by": "ci-workflow-dispatch"
+    }
+  ],
+  "dependency_changes": [],
+  "workflow_run": {
+    "run_id": "9999000003",
+    "workflow_name": "ShopLite Deploy",
+    "status": "success",
+    "conclusion": "success",
+    "head_sha": "sha-lat001",
+    "triggered_by": "workflow_dispatch",
+    "inputs": {
+      "fault": "latency",
+      "memory_limit": "256Mi"
+    },
+    "failed_jobs": []
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "incident_id": "incident-004",
+  "root_cause": "The v1.9.0 image requires PAYMENT_GATEWAY_URL at startup (new code in settings.py) but the deployment never supplies it, so every new pod exits with code 1 and crash-loops. The pipeline passed because tests do not run the real startup path.",
+  "root_cause_type": "deployment_induced_failure",
+  "contributing_factors": [
+    "New required environment variable introduced in code",
+    "Deployment manifest not updated with the variable",
+    "Pipeline has no startup smoke test"
+  ],
+  "evidence": [
+    "Deployment succeeded at 11:10",
+    "Pod CrashLoopBackOff restarts 14 exit code 1",
+    "PAYMENT_GATEWAY_URL is not set",
+    "Code change in settings.py"
+  ],
+  "agents_consulted": [
+    "cicd_analyzer",
+    "kubernetes_analyzer",
+    "observability_analyzer"
+  ],
+  "expected_confidence": 0.88,
+  "remediation": {
+    "recommendation": "Roll back to v1.8.4 or add PAYMENT_GATEWAY_URL to the deployment",
+    "steps": [
+      "kubectl rollout undo deployment/checkout-service",
+      "Add PAYMENT_GATEWAY_URL to the manifest",
+      "Add a startup smoke test to the pipeline"
+    ],
+    "priority": "high",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

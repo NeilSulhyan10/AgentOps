@@ -1,0 +1,62 @@
+{
+  "pods": [
+    {
+      "name": "shoplite-8e1f2b9c6-ee5v1",
+      "namespace": "shoplite",
+      "status": "Running",
+      "ready": false,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "48Mi",
+      "memory_limit": "256Mi",
+      "cpu_usage": "30m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-05T13:01:00Z",
+      "last_termination_reason": null,
+      "last_termination_exit_code": null,
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 503",
+          "timestamp": "2024-06-05T14:35:00Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 503",
+          "timestamp": "2024-06-05T14:35:10Z"
+        }
+      ]
+    },
+    {
+      "name": "shoplite-8e1f2b9c6-ff6u2",
+      "namespace": "shoplite",
+      "status": "Running",
+      "ready": false,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "47Mi",
+      "memory_limit": "256Mi",
+      "cpu_usage": "28m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-05T13:01:05Z",
+      "last_termination_reason": null,
+      "last_termination_exit_code": null,
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 503",
+          "timestamp": "2024-06-05T14:35:05Z"
+        }
+      ]
+    }
+  ],
+  "node_info": {
+    "node_name": "kind-worker",
+    "memory_capacity": "8Gi",
+    "memory_allocatable": "7Gi"
+  },
+  "note": "Pods are running but not ready — readiness probe fails because /health returns 503 when FAULT=db_down."
+}

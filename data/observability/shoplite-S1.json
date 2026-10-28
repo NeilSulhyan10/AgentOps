@@ -1,0 +1,37 @@
+{
+  "latency": null,
+  "error_rate": null,
+  "logs": [
+    {
+      "timestamp": "2024-06-01T09:01:00Z",
+      "level": "ERROR",
+      "message": "FAILED tests/test_app.py::test_flaky_always_fails - AssertionError: Intentional test failure — simulates S1 bad deployment",
+      "service": "shoplite-ci",
+      "source": "github-actions-test-job"
+    },
+    {
+      "timestamp": "2024-06-01T09:01:01Z",
+      "level": "ERROR",
+      "message": "FAILED tests/test_app.py::test_flaky_import_error - ModuleNotFoundError: No module named 'app.nonexistent_module'",
+      "service": "shoplite-ci",
+      "source": "github-actions-test-job"
+    },
+    {
+      "timestamp": "2024-06-01T09:01:02Z",
+      "level": "ERROR",
+      "message": "pytest exit code 1 — 2 failed, 8 passed",
+      "service": "shoplite-ci",
+      "source": "github-actions-test-job"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-06-01T09:01:00Z",
+      "error": "AssertionError: Intentional test failure — simulates S1 bad deployment",
+      "service": "shoplite-ci",
+      "trace": "tests/test_app.py::test_flaky_always_fails\n  assert False, \"Intentional test failure — simulates S1 bad deployment\"\nAssertionError: Intentional test failure — simulates S1 bad deployment"
+    }
+  ],
+  "traces": [],
+  "note": "S1 — no runtime metrics. Failure is in CI test stage before any container starts."
+}

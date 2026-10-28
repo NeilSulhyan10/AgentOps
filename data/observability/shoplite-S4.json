@@ -1,0 +1,45 @@
+{
+  "latency": null,
+  "error_rate": null,
+  "logs": [
+    {
+      "timestamp": "2024-06-04T12:01:08Z",
+      "level": "ERROR",
+      "message": "REQUIRED_SECRET env var is not set — startup aborted",
+      "service": "shoplite",
+      "request_id": "startup",
+      "route": "startup",
+      "latency_ms": 0,
+      "error": "missing_env_var"
+    },
+    {
+      "timestamp": "2024-06-04T12:01:09Z",
+      "level": "ERROR",
+      "message": "RuntimeError: REQUIRED_SECRET env var is not set",
+      "service": "shoplite",
+      "pod": "shoplite-5c7f6d8a1-cc3z1",
+      "namespace": "shoplite"
+    },
+    {
+      "timestamp": "2024-06-04T12:03:00Z",
+      "level": "ERROR",
+      "message": "REQUIRED_SECRET env var is not set — startup aborted (restart 5)",
+      "service": "shoplite",
+      "request_id": "startup",
+      "route": "startup",
+      "latency_ms": 0,
+      "error": "missing_env_var"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-06-04T12:01:09Z",
+      "error": "RuntimeError: REQUIRED_SECRET env var is not set",
+      "service": "shoplite",
+      "pod": "shoplite-5c7f6d8a1-cc3z1",
+      "trace": "app/main.py in lifespan\n  raise RuntimeError(\"REQUIRED_SECRET env var is not set\")\nRuntimeError: REQUIRED_SECRET env var is not set"
+    }
+  ],
+  "traces": [],
+  "note": "S4 — container crashes at startup. No HTTP requests served. No latency or error-rate metrics."
+}

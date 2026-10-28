@@ -1,0 +1,37 @@
+{
+  "incident_id": "shoplite-S5",
+  "root_cause": "The Postgres dependency is unavailable — either the postgres container was stopped or DB_URL was changed to an invalid value. ShopLite's _db_check() returns False, causing /products and /orders to return HTTP 503, and /health to return HTTP 503 with db=unreachable. The application itself is healthy; only its database dependency has failed.",
+  "root_cause_type": "dependency_issue",
+  "contributing_factors": [
+    "FAULT=db_down set, or DB_URL changed to invalid/unreachable host",
+    "Postgres container stopped or never started",
+    "No connection pooling retry or circuit breaker in the application",
+    "All data-dependent endpoints return 503",
+    "Health check also returns 503 so Kubernetes may eventually evict the pod"
+  ],
+  "evidence": [
+    "GET /health returns HTTP 503 with {\"db\": \"unreachable\"}",
+    "GET /products returns HTTP 503 with error=database_unreachable",
+    "POST /orders returns HTTP 503 with error=database_unreachable",
+    "Application log: 'Database unreachable — cannot load products'",
+    "Application log: 'Database unreachable — cannot persist order'",
+    "FAULT=db_down in /version response or ConfigMap",
+    "Postgres pod not running or DB_URL pointing to wrong host"
+  ],
+  "agents_consulted": ["observability_analyzer", "dependency_analyzer"],
+  "expected_confidence": 0.87,
+  "remediation": {
+    "recommendation": "Restore the database connection: restart Postgres and correct DB_URL.",
+    "steps": [
+      "Check Postgres pod/container status: kubectl get pods -n shoplite",
+      "If stopped, restart: kubectl rollout restart deployment/postgres -n shoplite",
+      "Verify DB_URL in the shoplite-secret points to the correct host and port",
+      "Set FAULT=none to clear the injected fault",
+      "Confirm /health returns {\"db\": \"ok\"}",
+      "Add an exponential-backoff retry on DB connection startup to tolerate transient failovers"
+    ],
+    "priority": "high",
+    "estimated_effort": "medium",
+    "risk_level": "low"
+  }
+}

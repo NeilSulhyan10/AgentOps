@@ -75,6 +75,30 @@ tail -f logs/llm_traces.jsonl
 
 Each line is one call and includes the task/agent, prompt, response, token count, duration, and any provider error. Tracing is disabled by default. The trace file can contain incident and infrastructure data, so keep it local and avoid committing or sharing it without review.
 
+## Triggering Incidents
+
+Every `data/incidents/<id>.json` is a replayable scenario; its CI/CD, Kubernetes and observability
+evidence comes from the matching fixture files, so no GitHub credentials are needed.
+
+```bash
+python scripts/trigger_incident.py list                    # available scenarios
+python scripts/trigger_incident.py run incident-005 --wait # run one, print agents, critic verdicts and ground-truth match
+python scripts/trigger_incident.py run all --wait          # run everything
+python scripts/generate_scenarios.py                       # regenerate incident-003..007 fixtures
+python scripts/analyze_flow.py                             # summarise logs/flow.jsonl
+```
+
+The same actions are available over HTTP: `GET /api/scenarios`, `POST /api/scenarios/{id}/trigger`,
+`POST /api/scenarios/trigger-all`, plus `GET /api/investigations/{id}/critic` for the critic's reviews.
+
+### Critic
+
+After the specialists reach sufficient confidence, a `critic` agent (`backend/agents/markdown/critic.md`)
+reviews their combined findings as one causal chain. It checks that the conclusion is grounded in real
+evidence, corroborated by more than one layer and free of unexplained contradictions. A `challenged`
+verdict sends the investigation back to the router with the critic's suggested agent (bounded by
+`CRITIC_MAX_ROUNDS`, default 2); `ENABLE_CRITIC=false` disables it.
+
 ## Development Phases
 
 1. **Phase 1** - Project Foundation (this phase)

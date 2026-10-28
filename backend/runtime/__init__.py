@@ -8,6 +8,8 @@ from backend.runtime.agent_loader import (
     load_agent_definition,
     load_all_agent_definitions,
     reload_agent_definitions,
+    get_specialist_agent_names,
+    RESERVED_AGENT_NAMES,
 )
 
 from backend.runtime.agent_runner import (
@@ -22,6 +24,8 @@ __all__ = [
     "load_agent_definition",
     "load_all_agent_definitions",
     "reload_agent_definitions",
+    "get_specialist_agent_names",
+    "RESERVED_AGENT_NAMES",
     "AgentRunner",
     "get_agent_runner",
     "reload_agent_runner",

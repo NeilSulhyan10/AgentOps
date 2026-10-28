@@ -1,0 +1,75 @@
+{
+  "pods": [
+    {
+      "name": "shoplite-6b8f9d7c4-xk2m1",
+      "namespace": "shoplite",
+      "status": "OOMKilled",
+      "ready": false,
+      "restart_count": 7,
+      "exit_code": 137,
+      "memory_usage": "127Mi",
+      "memory_limit": "128Mi",
+      "cpu_usage": "85m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-02T10:01:00Z",
+      "last_termination_reason": "OOMKilled",
+      "last_termination_exit_code": 137,
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container shoplite exceeded memory limit of 128Mi and was killed",
+          "timestamp": "2024-06-02T10:02:12Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container shoplite exceeded memory limit of 128Mi and was killed",
+          "timestamp": "2024-06-02T10:03:45Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container shoplite exceeded memory limit of 128Mi and was killed",
+          "timestamp": "2024-06-02T10:05:20Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "BackOff",
+          "message": "Back-off restarting failed container",
+          "timestamp": "2024-06-02T10:07:00Z"
+        }
+      ]
+    },
+    {
+      "name": "shoplite-6b8f9d7c4-9z4n2",
+      "namespace": "shoplite",
+      "status": "OOMKilled",
+      "ready": false,
+      "restart_count": 6,
+      "exit_code": 137,
+      "memory_usage": "126Mi",
+      "memory_limit": "128Mi",
+      "cpu_usage": "80m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-02T10:01:05Z",
+      "last_termination_reason": "OOMKilled",
+      "last_termination_exit_code": 137,
+      "events": [
+        {
+          "type": "Warning",
+          "reason": "OOMKilling",
+          "message": "Container shoplite exceeded memory limit of 128Mi and was killed",
+          "timestamp": "2024-06-02T10:02:30Z"
+        }
+      ]
+    }
+  ],
+  "node_info": {
+    "node_name": "kind-worker",
+    "memory_capacity": "8Gi",
+    "memory_allocatable": "7Gi",
+    "pods_capacity": 110,
+    "pods_allocatable": 110
+  }
+}

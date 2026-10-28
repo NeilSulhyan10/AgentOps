@@ -1,0 +1,22 @@
+{
+  "incident_id": "incident-003",
+  "status": "open",
+  "title": "Auth service release blocked: tests failing after dependency upgrade",
+  "description": "auth-service deployment failed in CI at 2024-02-02T09:41:00Z. Integration tests error out on import after a library upgrade. Production is still running the previous release. Service: auth-service, namespace: production.",
+  "severity": "medium",
+  "source": "ci-pipeline",
+  "service_name": "auth-service",
+  "namespace": "production",
+  "started_at": "2024-02-02T09:41:00Z",
+  "detected_at": "2024-02-02T09:42:00Z",
+  "metadata": {
+    "pipeline": "build-and-test",
+    "failed_job": "integration-tests"
+  },
+  "tags": [
+    "auth",
+    "ci",
+    "tests",
+    "dependency"
+  ]
+}

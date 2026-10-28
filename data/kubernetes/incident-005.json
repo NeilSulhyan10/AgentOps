@@ -1,0 +1,88 @@
+{
+  "pods": [
+    {
+      "name": "orders-api-7b8c6d5f9-d4e5f",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "300Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "210m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-09T13:00:40Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container orders-api",
+          "timestamp": "2024-02-09T13:00:40Z"
+        }
+      ]
+    },
+    {
+      "name": "orders-api-7b8c6d5f9-g6h7j",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "300Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "210m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-09T13:00:40Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container orders-api",
+          "timestamp": "2024-02-09T13:00:40Z"
+        }
+      ]
+    },
+    {
+      "name": "orders-api-7b8c6d5f9-k8l9m",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "300Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "210m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-09T13:00:40Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container orders-api",
+          "timestamp": "2024-02-09T13:00:40Z"
+        }
+      ]
+    },
+    {
+      "name": "orders-api-7b8c6d5f9-n1p2q",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "300Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "210m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-09T13:00:40Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container orders-api",
+          "timestamp": "2024-02-09T13:00:40Z"
+        }
+      ]
+    }
+  ]
+}

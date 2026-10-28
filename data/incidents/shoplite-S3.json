@@ -1,0 +1,21 @@
+{
+  "incident_id": "shoplite-S3",
+  "title": "ShopLite high latency and 5xx spike — P99 > 2950ms, error rate 41%",
+  "description": "ShopLite is returning HTTP 500 errors on 41% of requests to /products and /orders. P99 latency has spiked to 2950ms (threshold 2000ms). Pods are running and healthy (no OOM). FAULT=latency is active. No database issues detected.",
+  "severity": "critical",
+  "status": "open",
+  "source": "prometheus-alert",
+  "service_name": "shoplite",
+  "namespace": "shoplite",
+  "started_at": "2024-06-03T11:01:00Z",
+  "detected_at": "2024-06-03T11:01:00Z",
+  "metadata": {
+    "alert_name": "ShopliteHighErrorRate",
+    "error_rate": 41.2,
+    "p99_latency_ms": 2950,
+    "threshold_error_rate": 10,
+    "threshold_p99_ms": 2000,
+    "fault": "latency"
+  },
+  "tags": ["latency", "5xx", "observability", "shoplite"]
+}

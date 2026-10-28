@@ -1,0 +1,62 @@
+{
+  "latency": {
+    "p50": 4,
+    "p95": 9,
+    "p99": 14,
+    "unit": "ms",
+    "timestamp": "2024-06-07T09:00:00Z",
+    "service": "shoplite"
+  },
+  "error_rate": {
+    "rate": 0.0,
+    "count": 0,
+    "total_requests": 1500,
+    "timestamp": "2024-06-07T09:00:00Z",
+    "service": "shoplite",
+    "error_codes": {}
+  },
+  "logs": [
+    {
+      "timestamp": "2024-06-07T08:01:05Z",
+      "level": "INFO",
+      "message": "ShopLite starting",
+      "service": "shoplite",
+      "request_id": "startup",
+      "route": "startup",
+      "latency_ms": 0
+    },
+    {
+      "timestamp": "2024-06-07T08:01:06Z",
+      "level": "INFO",
+      "message": "Config loaded",
+      "service": "shoplite",
+      "request_id": "startup",
+      "route": "startup",
+      "latency_ms": 0,
+      "fault": "none",
+      "git_sha": "sha-healthy"
+    },
+    {
+      "timestamp": "2024-06-07T08:30:00Z",
+      "level": "INFO",
+      "message": "GET /health → 200",
+      "service": "shoplite",
+      "request_id": "req-healthy-001",
+      "route": "/health",
+      "latency_ms": 3,
+      "status_code": 200
+    },
+    {
+      "timestamp": "2024-06-07T08:30:01Z",
+      "level": "INFO",
+      "message": "GET /products → 200",
+      "service": "shoplite",
+      "request_id": "req-healthy-002",
+      "route": "/products",
+      "latency_ms": 5,
+      "status_code": 200
+    }
+  ],
+  "stack_traces": [],
+  "traces": []
+}

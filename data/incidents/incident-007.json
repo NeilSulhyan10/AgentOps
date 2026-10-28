@@ -1,0 +1,22 @@
+{
+  "incident_id": "incident-007",
+  "status": "open",
+  "title": "Inventory service pods not ready after deployment: probes failing",
+  "description": "After the deployment at 2024-02-14T10:00:00Z, new inventory-service pods never become ready. The readiness probe fails with 404 and the rollout is stuck. Service: inventory-service, namespace: production.",
+  "severity": "high",
+  "source": "prometheus-alert",
+  "service_name": "inventory-service",
+  "namespace": "production",
+  "started_at": "2024-02-14T10:02:00Z",
+  "detected_at": "2024-02-14T10:04:00Z",
+  "metadata": {
+    "alert_name": "RolloutStuck",
+    "unavailable_replicas": 3
+  },
+  "tags": [
+    "inventory",
+    "readiness",
+    "deployment",
+    "config"
+  ]
+}

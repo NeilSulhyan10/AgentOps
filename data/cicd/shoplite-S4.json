@@ -1,0 +1,54 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "shoplite-deploy-S4",
+      "timestamp": "2024-06-04T12:00:00Z",
+      "service": "shoplite",
+      "namespace": "shoplite",
+      "image": "shoplite:sha-cfg001",
+      "previous_image": "shoplite:sha-abc1234",
+      "strategy": "rolling",
+      "replicas": 2,
+      "status": "failed"
+    }
+  ],
+  "code_changes": [],
+  "config_changes": [
+    {
+      "key": "FAULT",
+      "old_value": "none",
+      "new_value": "bad_config",
+      "timestamp": "2024-06-04T12:00:00Z",
+      "changed_by": "ci-workflow-dispatch"
+    },
+    {
+      "key": "REQUIRED_SECRET",
+      "old_value": "present",
+      "new_value": "missing",
+      "timestamp": "2024-06-04T12:00:00Z",
+      "changed_by": "deploy-workflow (break_config=true)"
+    }
+  ],
+  "dependency_changes": [],
+  "workflow_run": {
+    "run_id": "9999000004",
+    "workflow_name": "ShopLite Deploy",
+    "status": "failure",
+    "conclusion": "failure",
+    "head_sha": "sha-cfg001",
+    "triggered_by": "workflow_dispatch",
+    "inputs": {
+      "fault": "bad_config",
+      "memory_limit": "256Mi",
+      "break_config": "true"
+    },
+    "failed_jobs": [
+      {
+        "job_name": "deploy to kind",
+        "conclusion": "failure",
+        "failed_step": "Smoke test",
+        "log_excerpt": "curl: (7) Failed to connect to localhost port 8080\nSmoke test failed — no response from shoplite"
+      }
+    ]
+  }
+}

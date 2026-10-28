@@ -1,0 +1,28 @@
+{
+  "deployments": [
+    {
+      "deployment_id": "shoplite-deploy-S7",
+      "timestamp": "2024-06-07T08:00:00Z",
+      "service": "shoplite",
+      "namespace": "shoplite",
+      "image": "shoplite:sha-healthy",
+      "previous_image": "shoplite:sha-healthy",
+      "strategy": "rolling",
+      "replicas": 2,
+      "status": "success"
+    }
+  ],
+  "code_changes": [],
+  "config_changes": [],
+  "dependency_changes": [],
+  "workflow_run": {
+    "run_id": "9999000007",
+    "workflow_name": "ShopLite CI",
+    "status": "success",
+    "conclusion": "success",
+    "head_sha": "sha-healthy",
+    "triggered_by": "push",
+    "inputs": {},
+    "failed_jobs": []
+  }
+}

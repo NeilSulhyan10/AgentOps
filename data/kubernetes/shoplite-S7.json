@@ -1,0 +1,48 @@
+{
+  "pods": [
+    {
+      "name": "shoplite-1a2b3c4d5-ii9r1",
+      "namespace": "shoplite",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "42Mi",
+      "memory_limit": "256Mi",
+      "cpu_usage": "20m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-07T08:01:00Z",
+      "last_termination_reason": null,
+      "last_termination_exit_code": null,
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container shoplite",
+          "timestamp": "2024-06-07T08:01:05Z"
+        }
+      ]
+    },
+    {
+      "name": "shoplite-1a2b3c4d5-jj0q2",
+      "namespace": "shoplite",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "41Mi",
+      "memory_limit": "256Mi",
+      "cpu_usage": "18m",
+      "cpu_limit": "500m",
+      "started_at": "2024-06-07T08:01:05Z",
+      "last_termination_reason": null,
+      "last_termination_exit_code": null,
+      "events": []
+    }
+  ],
+  "node_info": {
+    "node_name": "kind-worker",
+    "memory_capacity": "8Gi",
+    "memory_allocatable": "7Gi"
+  }
+}

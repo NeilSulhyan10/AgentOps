@@ -1,0 +1,37 @@
+{
+  "incident_id": "shoplite-S4",
+  "root_cause": "The deploy workflow was run with break_config=true, which means the Kubernetes Secret containing REQUIRED_SECRET was deliberately not created. When FAULT=bad_config is set, the application checks for REQUIRED_SECRET at startup and raises RuntimeError if it is absent, causing the container to exit with code 1 immediately. Kubernetes enters CrashLoopBackOff because every restart hits the same missing-variable error.",
+  "root_cause_type": "configuration_error",
+  "contributing_factors": [
+    "REQUIRED_SECRET env var absent from Kubernetes Secret / deployment",
+    "FAULT=bad_config causes app startup to validate and raise on missing var",
+    "Container exits with code 1 before serving any request",
+    "Kubernetes CrashLoopBackOff: all replicas fail the same way",
+    "Liveness and readiness probes never succeed — pods never become ready",
+    "CI deploy workflow skipped secret creation (break_config=true)"
+  ],
+  "evidence": [
+    "Pod exit code 1 (application startup failure)",
+    "Pod status: CrashLoopBackOff",
+    "Application log: 'REQUIRED_SECRET env var is not set — startup aborted'",
+    "FAULT=bad_config in ConfigMap",
+    "Secret shoplite-secret missing or does not contain REQUIRED_SECRET",
+    "GitHub Actions deploy job: break_config=true in workflow inputs",
+    "Readiness probe failing: no pods ever ready"
+  ],
+  "agents_consulted": ["cicd_analyzer", "kubernetes_analyzer"],
+  "expected_confidence": 0.88,
+  "remediation": {
+    "recommendation": "Create the missing Kubernetes Secret with REQUIRED_SECRET and redeploy.",
+    "steps": [
+      "kubectl create secret generic shoplite-secret --from-literal=REQUIRED_SECRET=<value> -n shoplite",
+      "Set FAULT=none in the ConfigMap",
+      "kubectl rollout restart deployment/shoplite -n shoplite",
+      "Verify pods reach Running/Ready state",
+      "Add secret existence validation to the deploy workflow to prevent recurrence"
+    ],
+    "priority": "high",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

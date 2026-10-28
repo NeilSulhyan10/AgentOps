@@ -13,6 +13,7 @@ from backend.models import (
     RemediationRecommendation
 )
 from backend.services.investigation_service import investigation_service
+from backend.services.scenarios import list_scenarios, load_scenario_incident
 from backend.orchestrator.state import mongo_state_manager
 from backend.api.websocket import investigation_websocket
 
@@ -28,7 +29,7 @@ async def create_incident(request: InvestigationRequest):
     return InvestigationResponse(
         investigation_id=investigation.investigation_id,
         status=investigation.investigation_status,
-        message="Investigation started"
+        message="Investigation started — processing in background"
     )
 
 
@@ -41,6 +42,8 @@ async def list_incidents(status_filter: Optional[InvestigationStatus] = None):
             investigation_id=inv.investigation_id,
             incident_id=inv.incident_id,
             incident_title=inv.incident.title if inv.incident else inv.incident_id,
+            service_name=inv.incident.service_name if inv.incident else "",
+            namespace=inv.incident.namespace if inv.incident else "",
             status=inv.investigation_status,
             current_hypothesis=inv.current_hypothesis,
             overall_confidence=inv.overall_confidence,
@@ -67,6 +70,8 @@ async def get_incident(incident_id: str):
         investigation_id=investigation.investigation_id,
         incident_id=investigation.incident_id,
         incident_title=investigation.incident.title if investigation.incident else investigation.incident_id,
+        service_name=investigation.incident.service_name if investigation.incident else "",
+        namespace=investigation.incident.namespace if investigation.incident else "",
         status=investigation.investigation_status,
         current_hypothesis=investigation.current_hypothesis,
         overall_confidence=investigation.overall_confidence,
@@ -76,6 +81,42 @@ async def get_incident(incident_id: str):
         created_at=investigation.created_at,
         updated_at=investigation.updated_at,
         completed_at=investigation.completed_at
+    )
+
+
+scenario_router = APIRouter(prefix="/scenarios", tags=["scenarios"])
+
+
+@scenario_router.get("")
+async def get_scenarios():
+    return {"scenarios": list_scenarios()}
+
+
+@scenario_router.post("/trigger-all", response_model=List[InvestigationResponse], status_code=status.HTTP_201_CREATED)
+async def trigger_all_scenarios():
+    responses = []
+    for scenario in list_scenarios():
+        incident = load_scenario_incident(scenario["scenario_id"])
+        investigation = await investigation_service.start_investigation(incident, evidence=[])
+        responses.append(InvestigationResponse(
+            investigation_id=investigation.investigation_id,
+            status=investigation.investigation_status,
+            message=f"Scenario {scenario['scenario_id']} started",
+        ))
+    return responses
+
+
+@scenario_router.post("/{scenario_id}/trigger", response_model=InvestigationResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_scenario(scenario_id: str):
+    try:
+        incident = load_scenario_incident(scenario_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown scenario: {scenario_id}")
+    investigation = await investigation_service.start_investigation(incident, evidence=[])
+    return InvestigationResponse(
+        investigation_id=investigation.investigation_id,
+        status=investigation.investigation_status,
+        message=f"Scenario {scenario_id} started — processing in background",
     )
 
 
@@ -148,7 +189,31 @@ async def get_investigation_timeline(investigation_id: str):
             "timestamp": conf.timestamp.isoformat()
         })
 
+    for review in investigation.critic_reviews:
+        timeline.append({
+            "type": "critic_review",
+            "round": review.round,
+            "verdict": review.verdict,
+            "hypothesis": review.assessed_hypothesis if isinstance(review.assessed_hypothesis, str) else review.assessed_hypothesis.value,
+            "concerns": review.concerns,
+            "missing_checks": review.missing_checks,
+            "suggested_agent": review.suggested_agent,
+            "confidence": review.confidence,
+            "reasoning": review.reasoning,
+            "timestamp": review.timestamp.isoformat()
+        })
+
     return {"timeline": sorted(timeline, key=lambda x: x["timestamp"])}
+
+
+@investigation_router.get("/{investigation_id}/critic")
+async def get_critic_reviews(investigation_id: str):
+    investigation = await investigation_service.get_investigation(investigation_id)
+
+    if not investigation:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+
+    return {"reviews": [r.model_dump(mode="json") for r in investigation.critic_reviews]}
 
 
 @investigation_router.get("/{investigation_id}/evidence")

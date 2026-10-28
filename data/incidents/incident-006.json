@@ -1,0 +1,21 @@
+{
+  "incident_id": "incident-006",
+  "status": "open",
+  "title": "Search service latency high: memory pressure",
+  "description": "search-service p99 latency rose from 200ms to 4.5s since 2024-02-12T08:30:00Z. Pods are using almost all of their memory limit but have not been killed yet. No recent deployments. Service: search-service, namespace: production.",
+  "severity": "high",
+  "source": "prometheus-alert",
+  "service_name": "search-service",
+  "namespace": "production",
+  "started_at": "2024-02-12T08:30:00Z",
+  "detected_at": "2024-02-12T08:35:00Z",
+  "metadata": {
+    "alert_name": "SearchLatencyHigh",
+    "p99_ms": 4500
+  },
+  "tags": [
+    "search",
+    "latency",
+    "memory"
+  ]
+}

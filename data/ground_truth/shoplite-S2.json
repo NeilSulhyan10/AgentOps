@@ -1,0 +1,35 @@
+{
+  "incident_id": "shoplite-S2",
+  "root_cause": "The shoplite container was deployed with a 128 MiB memory limit while FAULT=oom is active. A background thread allocates 1 MiB every 200 ms without releasing it. The process exceeds the limit within about 60 seconds and the container is killed by the OOM killer (exit code 137). Kubernetes restarts the pod repeatedly, each time hitting OOM again.",
+  "root_cause_type": "kubernetes_oom",
+  "contributing_factors": [
+    "FAULT=oom activates a background memory-leak thread (1 MiB / 200 ms)",
+    "Container memory limit set to 128Mi — insufficient for the leak",
+    "No memory-based HPA to add replicas before the limit is reached",
+    "Pod restarts indefinitely: each restart triggers the leak immediately",
+    "Exit code 137 on every termination confirms OOM kill"
+  ],
+  "evidence": [
+    "Pod exit code 137 (OOMKilled)",
+    "Kubernetes event reason: OOMKilling",
+    "Pod restart count > 3 within 5 minutes",
+    "Container memory usage approaches 128Mi before each kill",
+    "FAULT=oom in ConfigMap / env var",
+    "Memory leak log line: 'OOM leak: allocated chunk' repeating at ~200 ms intervals"
+  ],
+  "agents_consulted": ["kubernetes_analyzer", "observability_analyzer"],
+  "expected_confidence": 0.92,
+  "remediation": {
+    "recommendation": "Remove FAULT=oom and increase the memory limit to at least 256 MiB.",
+    "steps": [
+      "Set FAULT=none via POST /fault or redeploy with FAULT=none in ConfigMap",
+      "Increase k8s memory limit to 256Mi (or more) in deployment.yaml",
+      "Add a memory-based HPA target (e.g. 80% utilisation)",
+      "Add a Prometheus alert on memory > 85% of limit",
+      "Re-apply the deployment and verify zero OOMKilled events"
+    ],
+    "priority": "high",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

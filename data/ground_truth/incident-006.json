@@ -1,0 +1,33 @@
+{
+  "incident_id": "incident-006",
+  "root_cause": "search-service's in-memory index cache grows without eviction until the container reaches about 98% of its 1Gi limit. Constant garbage collection then stalls requests, which shows up as high latency before any OOM kill.",
+  "root_cause_type": "kubernetes_oom",
+  "contributing_factors": [
+    "Memory usage 1002Mi / 1Gi limit",
+    "Cache without eviction",
+    "Long GC pauses",
+    "No recent deployment or traffic change"
+  ],
+  "evidence": [
+    "Memory usage 1002Mi / 1Gi",
+    "GC pause 1800ms heap at 97%",
+    "Index cache growing without eviction",
+    "No deployments in window"
+  ],
+  "agents_consulted": [
+    "kubernetes_analyzer",
+    "observability_analyzer"
+  ],
+  "expected_confidence": 0.82,
+  "remediation": {
+    "recommendation": "Bound the index cache and raise the memory limit",
+    "steps": [
+      "Add eviction to the index cache",
+      "Raise memory limit to 2Gi as a stop-gap",
+      "Alert on memory above 85% of limit"
+    ],
+    "priority": "high",
+    "estimated_effort": "medium",
+    "risk_level": "low"
+  }
+}

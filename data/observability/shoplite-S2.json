@@ -1,0 +1,62 @@
+{
+  "latency": {
+    "p50": 12,
+    "p95": 45,
+    "p99": 280,
+    "unit": "ms",
+    "timestamp": "2024-06-02T10:05:00Z",
+    "service": "shoplite",
+    "note": "Latency fluctuates heavily as pods crash and restart"
+  },
+  "error_rate": {
+    "rate": 62.5,
+    "count": 500,
+    "total_requests": 800,
+    "timestamp": "2024-06-02T10:05:00Z",
+    "service": "shoplite",
+    "error_codes": {
+      "500": 500,
+      "503": 0
+    },
+    "note": "High 5xx rate caused by pods being killed mid-request during OOM events"
+  },
+  "logs": [
+    {
+      "timestamp": "2024-06-02T10:02:12Z",
+      "level": "WARNING",
+      "message": "OOM leak: allocated chunk",
+      "service": "shoplite",
+      "request_id": "oom-worker",
+      "route": "background",
+      "latency_ms": 0
+    },
+    {
+      "timestamp": "2024-06-02T10:02:12Z",
+      "level": "ERROR",
+      "message": "Container shoplite-6b8f9d7c4-xk2m1 killed by OOMKiller — exit code 137",
+      "service": "shoplite",
+      "pod": "shoplite-6b8f9d7c4-xk2m1",
+      "namespace": "shoplite"
+    },
+    {
+      "timestamp": "2024-06-02T10:03:45Z",
+      "level": "ERROR",
+      "message": "Container shoplite-6b8f9d7c4-xk2m1 killed by OOMKiller — exit code 137 (restart 2)",
+      "service": "shoplite",
+      "pod": "shoplite-6b8f9d7c4-xk2m1",
+      "namespace": "shoplite"
+    }
+  ],
+  "stack_traces": [],
+  "traces": [
+    {
+      "trace_id": "oom-trace-001",
+      "service": "shoplite",
+      "operation": "GET /products",
+      "duration": 0,
+      "status": "error",
+      "error": "connection_reset — pod killed during request",
+      "timestamp": "2024-06-02T10:02:13Z"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
-from backend.models import AgentType, HypothesisType, AgentFinding, Evidence, RoutingDecision, RootCauseAnalysis, RemediationRecommendation, EvidenceType
+from backend.models import HypothesisType, AgentFinding, Evidence, RoutingDecision, RootCauseAnalysis, RemediationRecommendation, EvidenceType
 
 
 class LLMRequest(BaseModel):
@@ -19,7 +19,7 @@ class LLMResponse(BaseModel):
 
 
 class RoutingDecisionResponse(BaseModel):
-    selected_agent: AgentType
+    selected_agent: str  # open string — matches agent md file stem
     reasoning: str
     confidence: float = Field(ge=0.0, le=1.0)
 
@@ -30,6 +30,16 @@ class AgentAnalysisResponse(BaseModel):
     evidence: List[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str
+
+
+class CriticResponse(BaseModel):
+    verdict: Literal["confirmed", "challenged"]
+    hypothesis: HypothesisType = HypothesisType.UNKNOWN
+    concerns: List[str] = Field(default_factory=list)
+    missing_checks: List[str] = Field(default_factory=list)
+    suggested_agent: Optional[str] = None
+    confidence: float = Field(ge=0.0, le=1.0)
+    reasoning: str = ""
 
 
 class RCAResponse(BaseModel):

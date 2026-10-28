@@ -1,0 +1,20 @@
+{
+  "incident_id": "shoplite-S2",
+  "title": "ShopLite pods OOMKilled repeatedly — memory limit 128Mi exceeded",
+  "description": "Both shoplite pods in the shoplite namespace are being killed with exit code 137 (OOMKilled) and restarting repeatedly. Memory usage reaches 127-128Mi before each kill. FAULT=oom is active. Memory limit was reduced to 128Mi in the last deployment.",
+  "severity": "critical",
+  "status": "open",
+  "source": "prometheus-alert",
+  "service_name": "shoplite",
+  "namespace": "shoplite",
+  "started_at": "2024-06-02T10:02:00Z",
+  "detected_at": "2024-06-02T10:02:00Z",
+  "metadata": {
+    "alert_name": "ShopliteOOMKilled",
+    "pod_restart_count": 7,
+    "exit_code": 137,
+    "memory_limit": "128Mi",
+    "fault": "oom"
+  },
+  "tags": ["oom", "kubernetes", "memory", "shoplite"]
+}

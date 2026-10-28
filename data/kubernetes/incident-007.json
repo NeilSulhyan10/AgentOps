@@ -1,0 +1,103 @@
+{
+  "pods": [
+    {
+      "name": "inventory-service-8c7d6e5f4-p1a2b",
+      "namespace": "production",
+      "status": "Running",
+      "ready": false,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "210Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "120m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-14T10:00:30Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container inventory-service",
+          "timestamp": "2024-02-14T10:00:30Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "timestamp": "2024-02-14T10:01:00Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "timestamp": "2024-02-14T10:01:10Z"
+        }
+      ]
+    },
+    {
+      "name": "inventory-service-8c7d6e5f4-q3c4d",
+      "namespace": "production",
+      "status": "Running",
+      "ready": false,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "210Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "120m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-14T10:00:30Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container inventory-service",
+          "timestamp": "2024-02-14T10:00:30Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "timestamp": "2024-02-14T10:01:00Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "timestamp": "2024-02-14T10:01:10Z"
+        }
+      ]
+    },
+    {
+      "name": "inventory-service-8c7d6e5f4-r5e6f",
+      "namespace": "production",
+      "status": "Running",
+      "ready": false,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "210Mi",
+      "memory_limit": "512Mi",
+      "cpu_usage": "120m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-14T10:00:30Z",
+      "events": [
+        {
+          "type": "Normal",
+          "reason": "Started",
+          "message": "Started container inventory-service",
+          "timestamp": "2024-02-14T10:00:30Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "timestamp": "2024-02-14T10:01:00Z"
+        },
+        {
+          "type": "Warning",
+          "reason": "Unhealthy",
+          "message": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "timestamp": "2024-02-14T10:01:10Z"
+        }
+      ]
+    }
+  ]
+}

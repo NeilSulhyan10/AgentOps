@@ -1,0 +1,21 @@
+{
+  "incident_id": "incident-004",
+  "status": "open",
+  "title": "Checkout service crash-looping after successful deployment",
+  "description": "checkout-service pods in CrashLoopBackOff since the deployment at 2024-02-05T11:10:00Z. The pipeline reported success. Error rate is rising as old replicas are replaced. Service: checkout-service, namespace: production.",
+  "severity": "critical",
+  "source": "prometheus-alert",
+  "service_name": "checkout-service",
+  "namespace": "production",
+  "started_at": "2024-02-05T11:12:00Z",
+  "detected_at": "2024-02-05T11:13:00Z",
+  "metadata": {
+    "alert_name": "CheckoutCrashLoop",
+    "restarts": 14
+  },
+  "tags": [
+    "checkout",
+    "crashloop",
+    "deployment"
+  ]
+}

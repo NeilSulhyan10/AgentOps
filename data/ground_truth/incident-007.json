@@ -1,0 +1,34 @@
+{
+  "incident_id": "incident-007",
+  "root_cause": "The deployment changed the readiness probe path from /healthz to /health/ready, but the application only serves /healthz. Kubernetes keeps marking the new pods unready, so the rollout never completes.",
+  "root_cause_type": "configuration_error",
+  "contributing_factors": [
+    "Probe path changed to /health/ready",
+    "Application serves /healthz only",
+    "Probe returns 404",
+    "Application itself starts normally"
+  ],
+  "evidence": [
+    "Config change readinessProbe path",
+    "Readiness probe failed statuscode 404",
+    "Application started and serving requests",
+    "Pods running but not ready"
+  ],
+  "agents_consulted": [
+    "config_analyzer",
+    "kubernetes_analyzer",
+    "cicd_analyzer"
+  ],
+  "expected_confidence": 0.9,
+  "remediation": {
+    "recommendation": "Revert the readiness probe path to /healthz",
+    "steps": [
+      "Revert readinessProbe.httpGet.path to /healthz",
+      "Re-apply the deployment",
+      "Add a manifest lint that checks probe paths exist"
+    ],
+    "priority": "high",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

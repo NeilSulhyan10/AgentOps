@@ -12,7 +12,7 @@ from backend.data_sources.github_actions.models import (
 from backend.data_sources.github_actions.adapter import normalize_to_agentops_cicd_schema
 from backend.models import (
     Incident, IncidentSeverity, IncidentStatus,
-    Evidence, AgentType, EvidenceType
+    Evidence, EvidenceType
 )
 from backend.services.investigation_service import investigation_service
 from backend.services.mongodb import mongodb
@@ -325,7 +325,7 @@ class GitHubActionsMonitor:
         """Fetch comprehensive evidence from GitHub Actions for a specific workflow run."""
         from backend.data_sources.github_actions import GitHubActionsClient
         from backend.data_sources.github_actions.adapter import normalize_to_agentops_cicd_schema
-        from backend.models import Evidence, AgentType, EvidenceType
+        from backend.models import Evidence, EvidenceType
         from backend.data_sources.github_actions.models import GitHubActionsCICDData
         
         evidence = []
@@ -359,12 +359,12 @@ class GitHubActionsMonitor:
                 cicd_data = normalize_to_agentops_cicd_schema(github_data)
                 
                 # Convert to Evidence objects
-                from backend.models import Evidence, AgentType, EvidenceType
+                from backend.models import Evidence, EvidenceType
                 
                 for dep in cicd_data.deployments:
                     evidence.append(Evidence(
                         investigation_id="",
-                        agent_type=AgentType.CICD,
+                        agent_type="cicd_analyzer",
                         evidence_type=EvidenceType.DEPLOYMENT,
                         description=f"Deployment {dep.get('deployment_id', 'unknown')} at {dep.get('timestamp', 'unknown')}",
                         raw_data=dep,
@@ -375,7 +375,7 @@ class GitHubActionsMonitor:
                 for change in cicd_data.code_changes:
                     evidence.append(Evidence(
                         investigation_id="",
-                        agent_type=AgentType.CICD,
+                        agent_type="cicd_analyzer",
                         evidence_type=EvidenceType.CODE_CHANGE,
                         description=f"Code change in {change.get('file', 'unknown')}: {change.get('description', 'unknown')}",
                         raw_data=change,
@@ -386,7 +386,7 @@ class GitHubActionsMonitor:
                 for change in cicd_data.config_changes:
                     evidence.append(Evidence(
                         investigation_id="",
-                        agent_type=AgentType.CICD,
+                        agent_type="cicd_analyzer",
                         evidence_type=EvidenceType.CONFIG_CHANGE,
                         description=f"Config change: {change.get('key', 'unknown')} = {change.get('new_value', 'unknown')}",
                         raw_data=change,
@@ -397,7 +397,7 @@ class GitHubActionsMonitor:
                 for dep in cicd_data.dependency_changes:
                     evidence.append(Evidence(
                         investigation_id="",
-                        agent_type=AgentType.CICD,
+                        agent_type="cicd_analyzer",
                         evidence_type=EvidenceType.DEPENDENCY_CHANGE,
                         description=f"Dependency change: {dep.get('name', 'unknown')} {dep.get('old_version', '?')} -> {dep.get('new_version', '?')}",
                         raw_data=dep,
@@ -410,7 +410,7 @@ class GitHubActionsMonitor:
                     if job.conclusion == JobConclusion.FAILURE:
                         evidence.append(Evidence(
                             investigation_id="",
-                            agent_type=AgentType.CICD,
+                            agent_type="cicd_analyzer",
                             evidence_type=EvidenceType.JOB_FAILURE,
                             description=f"Job '{job.name}' failed: {job.conclusion}",
                             raw_data={
@@ -431,7 +431,7 @@ class GitHubActionsMonitor:
                             logs = job_logs[job.id]
                             evidence.append(Evidence(
                                 investigation_id="",
-                                agent_type=AgentType.CICD,
+                                agent_type="cicd_analyzer",
                                 evidence_type=EvidenceType.LOG,
                                 description=f"Logs for failed job '{job.name}'",
                                 raw_data={"logs": logs[:10000]},  # Truncate to 10KB

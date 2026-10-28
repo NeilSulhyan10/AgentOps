@@ -1,0 +1,33 @@
+{
+  "incident_id": "shoplite-S1",
+  "root_cause": "A commit enabled FLAKY_TESTS=true in the CI workflow, causing two intentionally-broken test cases to run. Both tests fail at assertion or import time, so the test stage exits non-zero and the build is blocked. No code change broke production; the pipeline itself is the failure point.",
+  "root_cause_type": "deployment_induced_failure",
+  "contributing_factors": [
+    "FLAKY_TESTS env var set to 'true' in workflow dispatch input",
+    "test_flaky_always_fails: hard assert False simulates a regressed test",
+    "test_flaky_import_error: imports a non-existent module simulating a removed dependency",
+    "CI exits non-zero on the test stage — build and deploy never run"
+  ],
+  "evidence": [
+    "GitHub Actions test job status: failure",
+    "FLAKY_TESTS=true in workflow run inputs",
+    "pytest output: FAILED tests/test_app.py::test_flaky_always_fails",
+    "pytest output: FAILED tests/test_app.py::test_flaky_import_error",
+    "Build job skipped (needs: test not satisfied)",
+    "No pods restarted — failure is pre-deploy"
+  ],
+  "agents_consulted": ["cicd_analyzer"],
+  "expected_confidence": 0.88,
+  "remediation": {
+    "recommendation": "Revert FLAKY_TESTS to false and fix or skip the broken tests before re-running the pipeline.",
+    "steps": [
+      "Set FLAKY_TESTS=false in the workflow dispatch input (or remove the flag)",
+      "Fix or mark xfail the two intentionally-failing test cases",
+      "Re-run the CI pipeline",
+      "Confirm test and build stages both pass"
+    ],
+    "priority": "high",
+    "estimated_effort": "low",
+    "risk_level": "low"
+  }
+}

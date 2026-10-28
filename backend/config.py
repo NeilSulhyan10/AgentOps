@@ -25,10 +25,14 @@ class Settings(BaseSettings):
     nemotron_temperature: float = 0.1
     llm_trace_enabled: bool = False
     llm_trace_path: str = "logs/llm_traces.jsonl"
+    flow_log_enabled: bool = True
+    flow_log_path: str = "logs/flow.jsonl"
 
     max_iterations: int = 5
     confidence_threshold: float = 0.75
     enable_llm_routing: bool = False
+    enable_critic: bool = True
+    critic_max_rounds: int = 2
 
     evaluation_dataset_path: str = "/app/data/ground_truth"
     evaluation_output_path: str = "/app/evaluation/experiments"

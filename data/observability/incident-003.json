@@ -1,0 +1,42 @@
+{
+  "latency": {
+    "p50": 30,
+    "p95": 60,
+    "p99": 95,
+    "unit": "ms",
+    "timestamp": "2024-02-02T09:42:00Z",
+    "service": "auth-service"
+  },
+  "error_rate": {
+    "rate": 0.1,
+    "count": 4,
+    "total_requests": 4000,
+    "timestamp": "2024-02-02T09:42:00Z",
+    "service": "auth-service",
+    "error_codes": {
+      "500": 4
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-02-02T09:40:12Z",
+      "level": "ERROR",
+      "message": "ImportError: cannot import name 'PyJWT' from 'jwt' during integration-tests",
+      "service": "auth-service"
+    },
+    {
+      "timestamp": "2024-02-02T09:40:13Z",
+      "level": "ERROR",
+      "message": "Test session failed: 38 tests errored at collection (incompatible jwt library version)",
+      "service": "auth-service"
+    }
+  ],
+  "stack_traces": [
+    {
+      "timestamp": "2024-02-02T09:40:12Z",
+      "error": "ImportError: cannot import name 'PyJWT' from 'jwt'",
+      "service": "auth-service",
+      "trace": "ImportError: cannot import name 'PyJWT' from 'jwt'\n\tat tests/conftest.py:12\n\tat auth/tokens.py:4"
+    }
+  ]
+}
