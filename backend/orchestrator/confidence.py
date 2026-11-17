@@ -15,11 +15,9 @@ DEFAULT_CONFIDENCE_THRESHOLD = 0.75
 
 
 def calculate_overall_confidence(agent_confidences: Dict[str, float]) -> float:
+    """The highest per-specialist score. The investigation's confidence is NOT this: see scoring.score_investigation."""
     if not agent_confidences:
         return 0.0
-
-    # Model confidence values are not calibrated independent probabilities.
-    # Noisy-OR would inflate confidence as agents are added.
     return round(max(agent_confidences.values()), 4)
 
 
@@ -66,7 +64,8 @@ def synthesize_rca(investigation: InvestigationState) -> RootCauseAnalysis:
             agents_consulted=investigation.agents_invoked
         )
 
-    primary_finding = max(valid_findings, key=lambda f: f.confidence)
+    from backend.orchestrator.causal import decide_root_cause
+    root_cause_type, decided_because = decide_root_cause(valid_findings)
     contributing_factors = []
     evidence_refs = []
 
@@ -128,13 +127,13 @@ def synthesize_rca(investigation: InvestigationState) -> RootCauseAnalysis:
                 "timestamp": ""
             })
 
-    root_cause = _generate_root_cause_text(findings, investigation.incident)
+    root_cause = _generate_root_cause_text(findings, investigation.incident, root_cause_type, decided_because)
 
     return RootCauseAnalysis(
         investigation_id=investigation.investigation_id,
         incident_id=investigation.incident_id,
         root_cause=root_cause,
-        root_cause_type=primary_finding.hypothesis,
+        root_cause_type=root_cause_type,
         contributing_factors=contributing_factors,
         evidence=list(set(evidence_refs)),
         agents_consulted=investigation.agents_invoked,
@@ -143,7 +142,7 @@ def synthesize_rca(investigation: InvestigationState) -> RootCauseAnalysis:
     )
 
 
-def _generate_root_cause_text(findings: List[AgentFinding], incident) -> str:
+def _generate_root_cause_text(findings: List[AgentFinding], incident, root_cause_type=None, decided_because: str = "") -> str:
     if not findings:
         return "What happened: We could not identify the cause from the information collected.\nWhy it is unclear: No investigation findings were available."
 
@@ -152,7 +151,15 @@ def _generate_root_cause_text(findings: List[AgentFinding], incident) -> str:
     if not valid_findings:
         return "What happened: We could not identify the cause from the information collected.\nWhy it is unclear: No usable investigation findings were available."
 
-    primary = max(valid_findings, key=lambda f: f.confidence)
+    root_cause_type = root_cause_type or max(valid_findings, key=lambda f: f.confidence).hypothesis
+    if root_cause_type == HypothesisType.UNKNOWN and all(f.hypothesis == HypothesisType.UNKNOWN for f in valid_findings):
+        looked = ", ".join(dict.fromkeys(f.agent_type for f in valid_findings))
+        return (
+            f"What happened: No fault was found. Every specialist that looked ({looked}) reported that its part of the system is healthy.\n"
+            "Why it is likely: The incident may have cleared on its own, or the problem is in something these checks do not cover."
+        )
+    matching = [f for f in valid_findings if f.hypothesis == root_cause_type]
+    primary = max(matching or valid_findings, key=lambda f: f.confidence)
 
     templates = {
         HypothesisType.DEPLOYMENT_INDUCED_FAILURE: (
@@ -186,7 +193,7 @@ def _generate_root_cause_text(findings: List[AgentFinding], incident) -> str:
     }
 
     template = templates.get(
-        primary.hypothesis,
+        root_cause_type,
         "We could not confirm the exact cause. The strongest clue so far is: {details}"
     )
     details = primary.finding
@@ -195,7 +202,7 @@ def _generate_root_cause_text(findings: List[AgentFinding], incident) -> str:
         other_findings = [f for f in findings if isinstance(f, AgentFinding) and f != primary]
         details += f" Additional factors: {'; '.join(f.finding for f in other_findings)}"
 
-    return f"What happened: {template.format(details=details)}\nWhy it is likely: This is the strongest explanation supported by the current findings."
+    return f"What happened: {template.format(details=details)}\nWhy it is likely: {decided_because or 'This is the strongest explanation supported by the current findings'}."
 
 
 def generate_remediation(rca: RootCauseAnalysis) -> RemediationRecommendation:

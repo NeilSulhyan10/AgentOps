@@ -1,0 +1,52 @@
+{
+  "latency": {
+    "p50": 210,
+    "p95": 960,
+    "p99": 1400,
+    "unit": "ms",
+    "timestamp": "2024-02-20T14:14:00Z",
+    "service": "checkout-service"
+  },
+  "error_rate": {
+    "rate": 14.0,
+    "count": 560,
+    "total_requests": 4000,
+    "timestamp": "2024-02-20T14:14:00Z",
+    "service": "checkout-service",
+    "error_codes": {
+      "500": 560
+    }
+  },
+  "logs": [
+    {
+      "timestamp": "2024-02-20T14:09:50Z",
+      "level": "WARN",
+      "message": "Redis maxmemory reached: evicting keys (allkeys-lru), used_memory 2.00GB of 2.00GB",
+      "service": "checkout-service"
+    },
+    {
+      "timestamp": "2024-02-20T14:10:30Z",
+      "level": "WARN",
+      "message": "Redis evicted_keys=1.2M in the last 10 minutes; cache hit ratio 18%",
+      "service": "checkout-service"
+    },
+    {
+      "timestamp": "2024-02-20T14:11:05Z",
+      "level": "ERROR",
+      "message": "GET /cart 500: cache lookup failed, falling back to database",
+      "service": "checkout-service"
+    },
+    {
+      "timestamp": "2024-02-20T14:11:40Z",
+      "level": "WARN",
+      "message": "cache miss ratio 82% for key prefix session:*, every request now reads the database",
+      "service": "checkout-service"
+    },
+    {
+      "timestamp": "2024-02-20T14:12:15Z",
+      "level": "ERROR",
+      "message": "POST /checkout 500: redis eviction removed the cart session while the order was being placed",
+      "service": "checkout-service"
+    }
+  ]
+}

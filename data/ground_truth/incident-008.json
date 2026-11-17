@@ -1,0 +1,33 @@
+{
+  "incident_id": "incident-008",
+  "root_cause": "The Redis cache reached its 2 GB maxmemory limit and started evicting keys. Cache hit ratio collapsed, so every request fell back to the database, and evicted cart sessions made some checkouts fail with HTTP 500.",
+  "root_cause_type": "dependency_issue",
+  "contributing_factors": [
+    "Redis used_memory at its maxmemory limit",
+    "allkeys-lru eviction removing live sessions",
+    "Cache hit ratio 18%",
+    "Database load from cache bypass",
+    "No deployment or traffic change"
+  ],
+  "evidence": [
+    "Redis maxmemory reached, evicting keys",
+    "cache hit ratio 18%",
+    "cache lookup failed, falling back to database"
+  ],
+  "agents_consulted": [
+    "cache_analyzer",
+    "observability_analyzer"
+  ],
+  "expected_confidence": 0.8,
+  "remediation": {
+    "recommendation": "Raise the Redis memory limit and stop session keys being evicted",
+    "steps": [
+      "Raise Redis maxmemory or add a node",
+      "Use a separate eviction policy (volatile-lru) so session keys with no TTL are never evicted",
+      "Alert on cache hit ratio below 70%"
+    ],
+    "priority": "high",
+    "estimated_effort": "medium",
+    "risk_level": "low"
+  }
+}

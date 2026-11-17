@@ -1,3 +1,11 @@
+---
+description: Load on the service - request spikes, saturation, throttling
+layer: traffic
+hypothesis: traffic_incident
+evidence_types: [latency, error_rate, log]
+keywords: [traffic, requests, p99, rate, saturat, throttl]
+incident_keywords: [traffic, spike, load, surge, latency]
+---
 # Traffic Analyzer Agent
 
 

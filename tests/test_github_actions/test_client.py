@@ -1,5 +1,6 @@
 import pytest
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 
 from backend.data_sources.github_actions.client import (
@@ -84,7 +85,7 @@ class TestGitHubActionsClient:
         mock_response.status_code = 403
         mock_response.headers = {"X-RateLimit-Reset": str(int((datetime.now() + timedelta(seconds=60)).timestamp()))}
         
-        with patch.object(client.client, "get", new_callable=AsyncMock) as mock_get:
+        with patch.object(client.client, "request", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
             
             with pytest.raises(RateLimitError):
@@ -96,7 +97,7 @@ class TestGitHubActionsClient:
         mock_response = AsyncMock()
         mock_response.status_code = 401
         
-        with patch.object(client.client, "get", new_callable=AsyncMock) as mock_get:
+        with patch.object(client.client, "request", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
             
             with pytest.raises(GitHubAPIError, match="Invalid GitHub token"):
@@ -280,7 +281,7 @@ class TestClientErrorHandling:
         mock_response = AsyncMock()
         mock_response.status_code = 401
         
-        with patch.object(client.client, "get", new_callable=AsyncMock) as mock_get:
+        with patch.object(client.client, "request", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
             
             with pytest.raises(GitHubAPIError, match="Invalid GitHub token"):
@@ -292,7 +293,7 @@ class TestClientErrorHandling:
         mock_response = AsyncMock()
         mock_response.status_code = 404
         
-        with patch.object(client.client, "get", new_callable=AsyncMock) as mock_get:
+        with patch.object(client.client, "request", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
             
             with pytest.raises(GitHubAPIError, match="Resource not found"):
@@ -305,7 +306,7 @@ class TestClientErrorHandling:
         mock_response.status_code = 500
         mock_response.text = "Internal Server Error"
         
-        with patch.object(client.client, "get", new_callable=AsyncMock) as mock_get:
+        with patch.object(client.client, "request", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
             
             with pytest.raises(GitHubAPIError, match="GitHub API error: 500"):
@@ -314,7 +315,7 @@ class TestClientErrorHandling:
     @pytest.mark.asyncio
     async def test_network_timeout(self, client):
         """Test timeout handling."""
-        with patch.object(client.client, "get", new_callable=AsyncMock) as mock_get:
+        with patch.object(client.client, "request", new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = httpx.TimeoutException("Timeout")
             
             with pytest.raises(httpx.TimeoutException):
@@ -323,7 +324,7 @@ class TestClientErrorHandling:
     @pytest.mark.asyncio
     async def test_connection_error(self, client):
         """Test connection error handling."""
-        with patch.object(client.client, "get", new_callable=AsyncMock) as mock_get:
+        with patch.object(client.client, "request", new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = httpx.ConnectError("Connection refused")
             
             with pytest.raises(httpx.ConnectError):
@@ -332,13 +333,6 @@ class TestClientErrorHandling:
 
 class TestRealDataOnly:
     """Test that only real GitHub Actions data is used (no mock fallback)."""
-    
-    def test_no_mock_cicd_fixtures_exist(self):
-        """Test that no mock CI/CD fixture files exist."""
-        from pathlib import Path
-        cicd_dir = Path("/home/neil/Documents/Project/agentops/data/cicd")
-        json_files = list(cicd_dir.glob("*.json"))
-        assert len(json_files) == 0, f"Found mock CI/CD files: {json_files}"
     
     def test_data_source_config_removed(self):
         """Test that DATA_SOURCE config is removed."""

@@ -2,6 +2,9 @@ import { Routes, Route } from 'react-router-dom'
 import { IncidentList } from './components/IncidentList'
 import { InvestigationDetail } from './components/InvestigationDetail'
 import { IncidentCreate } from './pages/IncidentCreate'
+import { Agents } from './pages/Agents'
+import { Apps } from './pages/Apps'
+import { AppPage } from './pages/AppPage'
 import { Header } from './components/Header'
 
 function App() {
@@ -12,6 +15,9 @@ function App() {
         <Routes>
           <Route path="/" element={<IncidentList />} />
           <Route path="/create" element={<IncidentCreate />} />
+          <Route path="/agents" element={<Agents />} />
+          <Route path="/apps" element={<Apps />} />
+          <Route path="/apps/:appKey" element={<AppPage />} />
           <Route path="/investigation/:investigationId" element={<InvestigationDetail />} />
         </Routes>
       </main>

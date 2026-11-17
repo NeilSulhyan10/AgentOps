@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from backend.config import settings
 from backend.models import (
     AgentFinding,
     CriticReview,
@@ -128,4 +129,4 @@ class TestScenarios:
         assert inv.root_cause is not None
         assert inv.critic_reviews, "critic must review before the RCA"
         assert inv.investigation_status in (InvestigationStatus.COMPLETED, InvestigationStatus.MAX_ITERATIONS_REACHED)
-        assert len(inv.critic_reviews) <= 2  # bounded by critic_max_rounds
+        assert len(inv.critic_reviews) <= settings.critic_max_rounds

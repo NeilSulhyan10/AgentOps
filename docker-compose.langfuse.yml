@@ -1,0 +1,53 @@
+# Self-hosted Langfuse (v2) to see every prompt AgentOps sends and every answer it gets.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.langfuse.yml up -d
+#   open http://localhost:3001, create an account and a project, copy its API keys into .env:
+#     LANGFUSE_PUBLIC_KEY=pk-lf-...   LANGFUSE_SECRET_KEY=sk-lf-...   LANGFUSE_HOST=http://langfuse:3000
+#   then restart the backend. Each investigation appears as one trace (session = investigation id).
+#
+# Self-host on purpose: prompts contain your incident logs and configuration.
+# The passwords below are for local use only; change them for anything shared.
+
+services:
+  langfuse-db:
+    image: postgres:16
+    container_name: agentops-langfuse-db
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse-local-only
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - agentops-network
+
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: agentops-langfuse
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse-local-only@langfuse-db:5432/langfuse
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: change-me-local-only
+      SALT: change-me-local-only
+      TELEMETRY_ENABLED: "false"
+    networks:
+      - agentops-network
+
+  backend:
+    environment:
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-http://langfuse:3000}
+
+volumes:
+  langfuse-db:

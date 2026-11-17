@@ -1,5 +1,6 @@
+import asyncio
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from backend.models import (
     InvestigationState, Incident, IncidentSeverity, IncidentStatus,
     HypothesisType, InvestigationStatus,
@@ -12,10 +13,16 @@ from backend.models.mongodb import (
 )
 import json
 
+_FINISHED = (
+    InvestigationStatus.COMPLETED, InvestigationStatus.FAILED, InvestigationStatus.MAX_ITERATIONS_REACHED,
+    InvestigationStatus.INSUFFICIENT_EVIDENCE, InvestigationStatus.INTERRUPTED,
+)
+
 
 class MongoStateManager:
     def __init__(self):
-        pass
+        # (investigation_id, collection) -> ids already written, so later updates skip the lookup
+        self._persisted: dict = {}
 
     def _incident_to_doc(self, incident: Incident) -> IncidentDoc:
         return IncidentDoc(
@@ -368,6 +375,19 @@ class MongoStateManager:
             return None
         return await self._doc_to_state(doc)
 
+    async def _insert_new(self, doc_class, id_field: str, items: list, to_doc, investigation_id: str) -> None:
+        """Insert the items that are not in the database yet, with one lookup and one batch insert."""
+        known = self._persisted.setdefault((investigation_id, doc_class.__name__), set())
+        fresh = [item for item in items if getattr(item, id_field) not in known]
+        if not fresh:
+            return
+        ids = [getattr(item, id_field) for item in fresh]
+        stored = {getattr(d, id_field) for d in await doc_class.find({id_field: {"$in": ids}}).to_list()}
+        to_insert = [to_doc(item) for item in fresh if getattr(item, id_field) not in stored]
+        if to_insert:
+            await doc_class.insert_many(to_insert)
+        known.update(ids)
+
     async def update_state(self, state: InvestigationState) -> InvestigationState:
         # Ensure IncidentDoc exists
         incident_doc = await IncidentDoc.find_one({"incident_id": state.incident_id})
@@ -402,49 +422,48 @@ class MongoStateManager:
             doc.completed_at = new_doc.completed_at
             await doc.save()
 
-        for ev in state.evidence:
-            ev.investigation_id = state.investigation_id
-            ev_doc = await EvidenceDoc.find_one({"evidence_id": ev.evidence_id})
-            if not ev_doc:
-                ev_doc = self._evidence_to_doc(ev, state.investigation_id)
-                await ev_doc.insert()
-
-        for finding in state.agent_findings:
-            finding.investigation_id = state.investigation_id
-            f_doc = await AgentFindingDoc.find_one({"finding_id": finding.finding_id})
-            if not f_doc:
-                f_doc = self._finding_to_doc(finding, state.investigation_id)
-                await f_doc.insert()
-
-        for decision in state.routing_decisions:
-            decision.investigation_id = state.investigation_id
-            d_doc = await RoutingDecisionDoc.find_one({"decision_id": decision.decision_id})
-            if not d_doc:
-                d_doc = self._decision_to_doc(decision, state.investigation_id)
-                await d_doc.insert()
-
-        for entry in state.confidence_history:
-            entry.investigation_id = state.investigation_id
-            c_doc = await ConfidenceEntryDoc.find_one({"entry_id": entry.entry_id})
-            if not c_doc:
-                c_doc = self._confidence_to_doc(entry, state.investigation_id)
-                await c_doc.insert()
-
+        # Children are only ever added, never changed.  Insert just the new ones, in batches,
+        # one collection at a time, concurrently (this used to be one query per child per node).
+        for ev in state.evidence: ev.investigation_id = state.investigation_id
+        for item in state.agent_findings: item.investigation_id = state.investigation_id
+        for item in state.routing_decisions: item.investigation_id = state.investigation_id
+        for item in state.confidence_history: item.investigation_id = state.investigation_id
+        iid = state.investigation_id
+        jobs = [
+            self._insert_new(EvidenceDoc, "evidence_id", state.evidence, lambda e: self._evidence_to_doc(e, iid), iid),
+            self._insert_new(AgentFindingDoc, "finding_id", state.agent_findings, lambda f: self._finding_to_doc(f, iid), iid),
+            self._insert_new(RoutingDecisionDoc, "decision_id", state.routing_decisions, lambda d: self._decision_to_doc(d, iid), iid),
+            self._insert_new(ConfidenceEntryDoc, "entry_id", state.confidence_history, lambda c: self._confidence_to_doc(c, iid), iid),
+        ]
         if state.root_cause:
-            state.root_cause.investigation_id = state.investigation_id
-            rca_doc = await RootCauseAnalysisDoc.find_one({"rca_id": state.root_cause.rca_id})
-            if not rca_doc:
-                rca_doc = self._rca_to_doc(state.root_cause)
-                await rca_doc.insert()
-
+            state.root_cause.investigation_id = iid
+            jobs.append(self._insert_new(RootCauseAnalysisDoc, "rca_id", [state.root_cause], self._rca_to_doc, iid))
         if state.remediation:
-            state.remediation.investigation_id = state.investigation_id
-            rem_doc = await RemediationDoc.find_one({"remediation_id": state.remediation.remediation_id})
-            if not rem_doc:
-                rem_doc = self._remediation_to_doc(state.remediation)
-                await rem_doc.insert()
+            state.remediation.investigation_id = iid
+            jobs.append(self._insert_new(RemediationDoc, "remediation_id", [state.remediation], self._remediation_to_doc, iid))
+        await asyncio.gather(*jobs)
+
+        if state.investigation_status in _FINISHED:
+            self._persisted = {k: v for k, v in self._persisted.items() if k[0] != iid}   # free the cache
 
         return state
+
+    async def mark_interrupted(self, stale_minutes: int) -> int:
+        """
+        Mark pending/running investigations that stopped being updated as `interrupted`.
+        A live run saves after every node, so one silent for `stale_minutes` has lost its
+        process (restart, crash).  Returns how many were marked.
+        """
+        cutoff = datetime.utcnow() - timedelta(minutes=stale_minutes)
+        stale = await InvestigationDoc.find({
+            "investigation_status": {"$in": [InvestigationStatus.PENDING.value, InvestigationStatus.RUNNING.value]},
+            "updated_at": {"$lt": cutoff},
+        }).to_list()
+        for doc in stale:
+            doc.investigation_status = InvestigationStatus.INTERRUPTED
+            doc.updated_at = datetime.utcnow()
+            await doc.save()
+        return len(stale)
 
     async def delete_state(self, investigation_id: str) -> bool:
         doc = await InvestigationDoc.find_one({"investigation_id": investigation_id})
@@ -456,6 +475,8 @@ class MongoStateManager:
             await ConfidenceEntryDoc.find({"investigation_id": investigation_id}).delete()
             await RootCauseAnalysisDoc.find({"investigation_id": investigation_id}).delete()
             await RemediationDoc.find({"investigation_id": investigation_id}).delete()
+            from backend.models.mongodb import FlowEventsDoc
+            await FlowEventsDoc.find({"investigation_id": investigation_id}).delete()
             if not await InvestigationDoc.find_one({"incident_id": doc.incident_id}):
                 incident_doc = await IncidentDoc.find_one({"incident_id": doc.incident_id})
                 if incident_doc:

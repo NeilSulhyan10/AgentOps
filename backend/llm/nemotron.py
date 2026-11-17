@@ -103,7 +103,8 @@ class NemotronLLM(LLMProvider):
                 content=error_content,
                 tokens_used=0,
                 model=self._model,
-                metadata={"error": str(e)}
+                metadata={"error": str(e)},
+                error=f"{type(e).__name__}: {e}",
             )
 
     async def _write_trace(
@@ -148,18 +149,6 @@ class NemotronLLM(LLMProvider):
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as trace_file:
             trace_file.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
-
-    async def generate_structured(
-        self,
-        request: LLMRequest,
-        response_model: Type[BaseModel]
-    ) -> BaseModel:
-        response = await self.generate(request)
-        try:
-            data = json.loads(response.content)
-            return response_model(**data)
-        except (json.JSONDecodeError, ValueError):
-            return response_model()
 
     async def close(self):
         if self._client:

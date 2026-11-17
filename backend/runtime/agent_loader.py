@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import logging
 
+from backend.runtime.agent_spec import AgentSpec, spec_from_markdown
+
 logger = logging.getLogger(__name__)
 
 # Names that exist in agents/markdown/ but are orchestrator agents, not
@@ -34,7 +36,8 @@ class AgentDefinitionLoader:
         else:
             self.agents_dir = agents_dir
 
-        self._cache: Dict[str, str] = {}
+        self._cache: Dict[str, str] = {}      # name -> prompt text (front-matter removed)
+        self._specs: Dict[str, AgentSpec] = {}
         self._loaded = False
 
     def load_all(self) -> Dict[str, str]:
@@ -48,9 +51,12 @@ class AgentDefinitionLoader:
 
         for md_file in sorted(self.agents_dir.glob("*.md")):
             agent_name = md_file.stem
+            if agent_name.startswith("_"):      # _template.md and similar are not agents
+                continue
             try:
-                content = md_file.read_text(encoding="utf-8")
+                spec, content = spec_from_markdown(agent_name, md_file.read_text(encoding="utf-8"), str(md_file))
                 self._cache[agent_name] = content
+                self._specs[agent_name] = spec
                 logger.info(f"Loaded agent definition: {agent_name}")
             except Exception as e:
                 logger.error(f"Failed to load agent {agent_name}: {e}")
@@ -70,8 +76,18 @@ class AgentDefinitionLoader:
     def reload(self) -> Dict[str, str]:
         """Force reload all agent definitions."""
         self._cache.clear()
+        self._specs.clear()
         self._loaded = False
         return self.load_all()
+
+    def get_spec(self, agent_name: str) -> Optional[AgentSpec]:
+        if not self._loaded:
+            self.load_all()
+        return self._specs.get(agent_name)
+
+    def get_specs(self) -> List[AgentSpec]:
+        """Every specialist (reserved orchestrator agents excluded)."""
+        return [self._specs[n] for n in self.get_specialist_agent_names()]
 
     def get_specialist_agent_names(self) -> List[str]:
         """
@@ -131,3 +147,7 @@ def get_specialist_agent_names() -> List[str]:
     agents discovered on disk.
     """
     return get_agent_loader().get_specialist_agent_names()
+
+
+def get_agent_spec(agent_name: str) -> Optional[AgentSpec]:
+    return get_agent_loader().get_spec(agent_name)

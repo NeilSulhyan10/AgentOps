@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flow report: shoplite-S2</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1f2328; --muted:#59636e; --line:#d1d9e0; --card:#f6f8fa;
+           --ok:#1a7f37; --warning:#9a6700; --error:#cf222e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --line:#3d444d; --card:#151b23;
+             --ok:#3fb950; --warning:#d29922; --error:#f85149; }
+  }
+  body { background:var(--bg); color:var(--fg); font:15px/1.5 system-ui,sans-serif; margin:0; padding:24px 16px; }
+  main { max-width:1000px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:17px; margin:32px 0 8px; }
+  .muted, .meta { color:var(--muted); font-size:13px; }
+  .meta span { margin-right:16px; }
+  .verdict { border:1px solid var(--line); border-left:6px solid var(--ok); background:var(--card);
+              padding:12px 16px; border-radius:6px; margin:16px 0; font-weight:600; }
+  .verdict.warning { border-left-color:var(--warning); }
+  .verdict.error { border-left-color:var(--error); }
+  .problem { border-left:4px solid var(--warning); background:var(--card); padding:8px 12px; margin:8px 0; border-radius:4px; }
+  .problem.error { border-left-color:var(--error); }
+  .problem ul { margin:4px 0 0; padding-left:20px; }
+  .ok-line { color:var(--ok); }
+  /* Diagrams keep a white card so their colours read the same in light and dark mode. */
+  .diagram { background:#ffffff; border:1px solid var(--line); border-radius:6px; padding:12px; overflow-x:auto; }
+  .diagram pre { margin:0; color:#1f2328; font-size:12px; }
+  .table-wrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  tr.warning td:nth-child(2) { color:var(--warning); }
+  tr.error td:nth-child(2) { color:var(--error); }
+  tr.ok td:nth-child(2) { color:var(--ok); }
+  tr.error { background:color-mix(in srgb, var(--error) 12%, transparent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>shoplite-S2</h1>
+  <div>ShopLite pods OOMKilled repeatedly — memory limit 128Mi exceeded</div>
+  <div class="verdict warning">Root cause: kubernetes_oom (confidence 0.74, status completed).</div>
+  <div class="meta"><span>decisions made by: <b>rules+fault:critic_always_challenges</b></span><span>injected fault: <b>critic_always_challenges</b></span><span>investigation e7a188c5-9c0c-47b0-a6fb-c97ab88062e5</span></div>
+
+  <h2>Steps that need attention</h2>
+  <div class="problem warning"><b>⚠ critique</b> - Critic #3: challenged (0.30)<ul><li>The conclusion is not convincing (injected fault: the critic rejects everything).</li><li>Could not loop back (no rounds, iterations or unused agents left); the root cause is reported with this concern unresolved.</li></ul></div>
+
+  <h2>Where the fault is in the application</h2>
+  <p class="muted">green = fine · amber = worth a look · red = the fault · grey dashed = not visited</p>
+  <div class="diagram"><pre class="mermaid">flowchart LR
+    cicd[&quot;CI/CD pipeline&lt;br/&gt;build, tests, deploy&lt;br/&gt;deployment_induced_failure (0.90)&quot;]:::warning
+    config[&quot;Configuration&lt;br/&gt;env vars, secrets, probes&lt;br/&gt;configuration_error (0.60)&quot;]:::warning
+    kubernetes[&quot;Kubernetes&lt;br/&gt;pods, memory limits, restarts&lt;br/&gt;ROOT CAUSE: kubernetes_oom (0.95)&quot;]:::error
+    service[&quot;Service&lt;br/&gt;latency, error rate, logs&lt;br/&gt;not checked&quot;]:::skipped
+    traffic[&quot;Traffic&lt;br/&gt;user load&lt;br/&gt;not checked&quot;]:::skipped
+    dependency[&quot;Dependencies&lt;br/&gt;database, downstream services&lt;br/&gt;not checked&quot;]:::skipped
+    cicd --&gt; kubernetes
+    config --&gt; kubernetes
+    kubernetes --&gt; service
+    traffic --&gt; service
+    service --&gt; dependency
+    classDef ok fill:#d1f2d9,stroke:#1a7f37,color:#0b2e13
+    classDef warning fill:#fff1c2,stroke:#9a6700,color:#3b2a00
+    classDef error fill:#ffd7d5,stroke:#cf222e,color:#5c0a0f,stroke-width:3px
+    classDef skipped fill:#f3f3f3,stroke:#999999,color:#666666,stroke-dasharray:4 3</pre></div>
+
+  <h2>How the investigation ran</h2>
+  <p class="muted">Thick arrows are the path that was taken. green = fine · amber = worth a look · red = the fault · grey dashed = not visited</p>
+  <div class="diagram"><pre class="mermaid">flowchart TD
+    normalize[&quot;normalize&lt;br/&gt;mark investigation as running&lt;br/&gt;Start investigation&quot;]:::ok
+    pre_filter[&quot;pre_filter&lt;br/&gt;keyword-based first guess&lt;br/&gt;Keyword pre-filter&quot;]:::ok
+    load_evidence[&quot;load_evidence&lt;br/&gt;collect CI/CD, Kubernetes, observability evidence&lt;br/&gt;Load evidence (22 items)&quot;]:::ok
+    spawn_agent[&quot;spawn_agent&lt;br/&gt;create a specialist if none covers a problem&lt;br/&gt;ran, nothing to do&quot;]:::ok
+    route[&quot;route&lt;br/&gt;choose the next specialist&lt;br/&gt;visited 3 times&quot;]:::ok
+    invoke_agent[&quot;invoke_agent&lt;br/&gt;run that specialist&lt;br/&gt;ran: kubernetes_analyzer, cicd_analyzer, config_analyzer&quot;]:::ok
+    evaluate[&quot;evaluate&lt;br/&gt;is confidence high enough?&lt;br/&gt;visited 3 times&quot;]:::ok
+    critique[&quot;critique&lt;br/&gt;critic reviews the conclusion&lt;br/&gt;visited 3 times&quot;]:::warning
+    generate_rca[&quot;generate_rca&lt;br/&gt;write root cause + remediation&lt;br/&gt;Root cause: kubernetes_oom (0.74)&quot;]:::ok
+    persist[&quot;persist&lt;br/&gt;finish&lt;br/&gt;Finished: completed&quot;]:::ok
+    normalize --&gt; pre_filter
+    pre_filter --&gt; load_evidence
+    load_evidence --&gt; spawn_agent
+    spawn_agent --&gt; route
+    route --&gt; invoke_agent
+    route --&gt; generate_rca
+    invoke_agent --&gt; evaluate
+    evaluate --&gt; route
+    evaluate --&gt; critique
+    critique --&gt; spawn_agent
+    critique --&gt; generate_rca
+    generate_rca --&gt; persist
+    linkStyle 0,1,2,3,4,6,8,9,10,11 stroke-width:3px
+    classDef ok fill:#d1f2d9,stroke:#1a7f37,color:#0b2e13
+    classDef warning fill:#fff1c2,stroke:#9a6700,color:#3b2a00
+    classDef error fill:#ffd7d5,stroke:#cf222e,color:#5c0a0f,stroke-width:3px
+    classDef skipped fill:#f3f3f3,stroke:#999999,color:#666666,stroke-dasharray:4 3</pre></div>
+
+  <h2>Step by step</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>#</th><th></th><th>Node</th><th>What happened</th><th>Details</th><th>ms</th></tr></thead>
+    <tbody><tr class="ok"><td>1</td><td>✔</td><td><code>normalize</code></td><td>Start investigation</td><td>Incident shoplite-S2: ShopLite pods OOMKilled repeatedly — memory limit 128Mi exceeded<br>Decisions made by: rules+fault:critic_always_challenges<br>Injected fault for this demo run: critic_always_challenges</td><td></td></tr><tr class="ok"><td>2</td><td>✔</td><td><code>pre_filter</code></td><td>Keyword pre-filter</td><td>First guess: kubernetes_oom<br>Wants to know about: deployment_details, pod_memory_status, pod_restart_pattern</td><td></td></tr><tr class="ok"><td>3</td><td>✔</td><td><code>load_evidence</code></td><td>Load evidence (22 items)</td><td>Sources: cicd_fixture, kubernetes_fixture, observability_fixture</td><td></td></tr><tr class="ok"><td>4</td><td>✔</td><td><code>route</code></td><td>Route #1 -&gt; kubernetes_analyzer</td><td>Hypothesis &#x27;kubernetes_oom&#x27; maps to kubernetes_analyzer</td><td>0</td></tr><tr class="ok"><td>5</td><td>✔</td><td><code>invoke_agent</code></td><td>kubernetes_analyzer: kubernetes_oom (0.95)</td><td>2 pod(s) were OOMKilled (exit code 137): they used more memory than their limit allows<br>Evidence cited: 6, of which real: 6</td><td>0</td></tr><tr class="ok"><td>6</td><td>✔</td><td><code>evaluate</code></td><td>Confidence 0.88 / 0.75 (enough)</td><td>Per agent: kubernetes_analyzer 0.93</td><td></td></tr><tr class="ok"><td>7</td><td>✔</td><td><code>critique</code></td><td>Critic #1: challenged (0.30)</td><td>The conclusion is not convincing (injected fault: the critic rejects everything).<br>Sent back to the router; suggested agent: None</td><td>1</td></tr><tr class="ok"><td>8</td><td>✔</td><td><code>route</code></td><td>Route #2 -&gt; cicd_analyzer</td><td>Evidence gap &#x27;deployment_details&#x27; maps to cicd_analyzer</td><td>0</td></tr><tr class="ok"><td>9</td><td>✔</td><td><code>invoke_agent</code></td><td>cicd_analyzer: deployment_induced_failure (0.90)</td><td>A resource limit was changed in the release; the incident starts right after it: Config change: resources.limits.memory = 128Mi<br>Evidence cited: 2, of which real: 2</td><td>0</td></tr><tr class="ok"><td>10</td><td>✔</td><td><code>evaluate</code></td><td>Confidence 0.93 / 0.75 (enough)</td><td>Per agent: kubernetes_analyzer 0.93, cicd_analyzer 0.83</td><td></td></tr><tr class="ok"><td>11</td><td>✔</td><td><code>critique</code></td><td>Critic #2: challenged (0.30)</td><td>The conclusion is not convincing (injected fault: the critic rejects everything).<br>Sent back to the router; suggested agent: None</td><td>1</td></tr><tr class="ok"><td>12</td><td>✔</td><td><code>route</code></td><td>Route #3 -&gt; config_analyzer</td><td>Default selection: config_analyzer</td><td>0</td></tr><tr class="ok"><td>13</td><td>✔</td><td><code>invoke_agent</code></td><td>config_analyzer: configuration_error (0.60)</td><td>Configuration changes - env vars, secrets, probes, ports: Config change: FAULT = oom; Config change: resources.limits.memory = 128Mi<br>Evidence cited: 2, of which real: 2</td><td>1</td></tr><tr class="ok"><td>14</td><td>✔</td><td><code>evaluate</code></td><td>Confidence 0.93 / 0.75 (enough)</td><td>Per agent: kubernetes_analyzer 0.93, cicd_analyzer 0.83, config_analyzer 0.69</td><td></td></tr><tr class="warning"><td>15</td><td>⚠</td><td><code>critique</code></td><td>Critic #3: challenged (0.30)</td><td>The conclusion is not convincing (injected fault: the critic rejects everything).<br>Could not loop back (no rounds, iterations or unused agents left); the root cause is reported with this concern unresolved.</td><td>1</td></tr><tr class="ok"><td>16</td><td>✔</td><td><code>generate_rca</code></td><td>Root cause: kubernetes_oom (0.74)</td><td>Agents used: kubernetes_analyzer -&gt; cicd_analyzer -&gt; config_analyzer</td><td></td></tr><tr class="ok"><td>17</td><td>✔</td><td><code>persist</code></td><td>Finished: completed</td><td></td><td>96</td></tr></tbody>
+  </table>
+  </div>
+</main>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "strict" });
+</script>
+</body>
+</html>

@@ -29,7 +29,7 @@ async def investigation_websocket(websocket: WebSocket, investigation_id: str):
                     "iteration": investigation.iteration_count,
                     "max_iterations": investigation.max_iterations,
                     "overall_confidence": investigation.overall_confidence,
-                    "current_agent": investigation.current_agent if isinstance(investigation.current_agent, str) else investigation.current_agent.value if investigation.current_agent else None,
+                    "current_agent": investigation.agents_invoked[-1] if investigation.agents_invoked else None,
                     "agents_invoked": [a.value if hasattr(a, 'value') else str(a) for a in investigation.agents_invoked],
                     "evidence_gaps": investigation.evidence_gaps,
                 }

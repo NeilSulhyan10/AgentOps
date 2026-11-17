@@ -1,0 +1,21 @@
+{
+  "incident_id": "incident-008",
+  "status": "open",
+  "title": "Checkout latency and errors: Redis cache full and evicting keys",
+  "description": "checkout-service p95 latency tripled and 14% of requests fail since 2024-02-20T14:10:00Z. The Redis cache hit ratio fell from 96% to 18%. No recent deployments. Service: checkout-service, namespace: production.",
+  "severity": "high",
+  "source": "prometheus-alert",
+  "service_name": "checkout-service",
+  "namespace": "production",
+  "started_at": "2024-02-20T14:10:00Z",
+  "detected_at": "2024-02-20T14:14:00Z",
+  "metadata": {
+    "alert_name": "CheckoutErrorRateHigh",
+    "error_rate": 14.0
+  },
+  "tags": [
+    "checkout",
+    "redis",
+    "cache"
+  ]
+}

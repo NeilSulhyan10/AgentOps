@@ -38,6 +38,12 @@ export function getSeverityColor(severity: string): string {
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
     case 'low':
       return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+    case 'config':
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+    case 'dependency':
+      return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400'
+    case 'traffic':
+      return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400'
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
   }
@@ -52,6 +58,8 @@ export function getStatusColor(status: string): string {
       return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
     case 'pending':
       return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+    case 'interrupted':
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
     case 'failed':
     case 'max_iterations_reached':
     case 'insufficient_evidence':
@@ -61,7 +69,24 @@ export function getStatusColor(status: string): string {
   }
 }
 
-export function getAgentColor(agent: string): string {
+const KNOWN_AGENTS: Record<string, string> = {
+  cicd: 'CI/CD',
+  kubernetes: 'Kubernetes',
+  observability: 'Observability',
+  config: 'Configuration',
+  dependency: 'Dependencies',
+  traffic: 'Traffic',
+}
+
+/** 'cicd_analyzer' -> 'CI/CD', 'cache_analyzer' -> 'Cache' (any agent name, including ones spawned at run time). */
+export function agentLabel(agent: string | undefined | null): string {
+  const key = (agent || '').replace(/_analyzer$/, '')
+  if (!key) return 'Unknown'
+  return KNOWN_AGENTS[key] || key.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
+
+export function getAgentColor(agentName: string): string {
+  const agent = agentName.replace(/_analyzer$/, '')
   switch (agent) {
     case 'cicd':
       return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'

@@ -45,6 +45,7 @@ services:
       - GITHUB_POLL_INTERVAL_SECONDS=${GITHUB_POLL_INTERVAL_SECONDS:-60}
     volumes:
       - ./data:/app/data:ro
+      - ./logs:/app/logs          # the flow log, shared with scripts run on the host
     depends_on:
       mongodb:
         condition: service_healthy

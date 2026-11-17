@@ -14,6 +14,8 @@ returns unparseable output.
 
 from typing import List, Optional
 
+from backend.orchestrator.causal import decide_root_cause
+from backend.orchestrator.router import GAP_AGENT_MAP
 from backend.models import (
     AgentFinding,
     CriticReview,
@@ -64,6 +66,7 @@ def deterministic_review(
     unused_agents: List[str],
     round_no: int,
     investigation_id: str = "",
+    evidence_gaps: Optional[List[str]] = None,
 ) -> CriticReview:
     grounded = grounded_findings(findings, evidence)
 
@@ -78,8 +81,10 @@ def deterministic_review(
         )
 
     lead = max(grounded, key=lambda f: f.confidence)
-    lead_h = HypothesisType(_value(lead.hypothesis))
+    lead_h, _why = decide_root_cause(grounded)
     layers = {f.agent_type for f in grounded}
+    is_multi = lead_h == HypothesisType.MULTI_LAYER_FAILURE   # disagreement is the finding, not a flaw
+    nothing_wrong = all(HypothesisType(_value(f.hypothesis)) == HypothesisType.UNKNOWN for f in grounded)
 
     concerns: List[str] = []
     missing: List[str] = []
@@ -90,7 +95,16 @@ def deterministic_review(
         )
         missing.append("Independent corroboration from a different layer (CI/CD, Kubernetes, observability, config, dependencies or traffic).")
 
-    for other in grounded:
+    suggested_for_gap: Optional[str] = None
+    for gap in evidence_gaps or []:
+        owner = GAP_AGENT_MAP.get(gap)
+        if owner in unused_agents and not is_multi and not nothing_wrong:
+            concerns.append(f"The pre-filter flagged '{gap}' but {owner} has not looked at it yet.")
+            missing.append(f"Check '{gap}' with {owner}.")
+            suggested_for_gap = owner
+            break
+
+    for other in [] if is_multi else grounded:
         oh = HypothesisType(_value(other.hypothesis))
         if (
             other.confidence >= 0.6
@@ -105,7 +119,7 @@ def deterministic_review(
             break
 
     if concerns and unused_agents:
-        suggested = pick_suggested_agent(lead_h, unused_agents)
+        suggested = suggested_for_gap or pick_suggested_agent(lead_h, unused_agents)
         return CriticReview(
             investigation_id=investigation_id, round=round_no, verdict="challenged",
             assessed_hypothesis=lead_h, concerns=concerns, missing_checks=missing,

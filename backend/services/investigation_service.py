@@ -1,6 +1,7 @@
 from typing import Optional, List
 import asyncio
 import logging
+import time
 
 from backend.models import (
     Incident,
@@ -12,7 +13,9 @@ from backend.orchestrator import (
     build_investigation_graph,
     create_initial_state,
 )
+from backend.orchestrator.run import log_investigation_finished, log_investigation_started
 from backend.orchestrator.state import mongo_state_manager
+from backend.services.flow_store import save_flow
 from backend.config import settings
 from backend.tools.data_access import get_cicd_evidence_from_github
 from backend.events import (
@@ -28,6 +31,7 @@ logger = logging.getLogger(__name__)
 class InvestigationService:
     def __init__(self):
         self.graph = build_investigation_graph()
+        self._tasks: set = set()
 
     async def start_investigation(
         self,
@@ -61,10 +65,12 @@ class InvestigationService:
         )
 
         # --- fire graph in background, return immediately ---
-        asyncio.create_task(
+        task = asyncio.create_task(
             self._run_investigation(initial_state, max_iterations),
             name=f"investigation-{initial_state.investigation_id}",
         )
+        self._tasks.add(task)                      # keep a reference, or the task can be garbage-collected mid-run
+        task.add_done_callback(self._tasks.discard)
 
         return initial_state
 
@@ -73,6 +79,8 @@ class InvestigationService:
     ) -> None:
         """Background task: run the graph and persist state at each step."""
         investigation_id = initial_state.investigation_id
+        started = time.perf_counter()
+        log_investigation_started(initial_state)
 
         await broadcast_status_change(investigation_id, "running")
         await broadcast_progress(investigation_id, 0, max_iterations, 0.0)
@@ -145,6 +153,8 @@ class InvestigationService:
             except Exception:
                 pass
             await broadcast_status_change(investigation_id, InvestigationStatus.FAILED)
+            log_investigation_finished(inv, started)
+            await save_flow(investigation_id)
             return
 
         completed = final_state["investigation"]
@@ -154,6 +164,8 @@ class InvestigationService:
             else completed.investigation_status.value
         )
         await broadcast_status_change(investigation_id, status_str)
+        log_investigation_finished(completed, started)
+        await save_flow(investigation_id)
         logger.info(f"Investigation {investigation_id} finished: {status_str}")
 
     async def get_investigation(self, investigation_id: str) -> Optional[InvestigationState]:

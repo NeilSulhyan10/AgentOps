@@ -1,3 +1,10 @@
+---
+description: Failing dependencies - databases, caches, downstream services, libraries
+layer: dependency
+hypothesis: dependency_issue
+evidence_types: [log, trace, stack_trace, dependency_change]
+keywords: [connection refused, database, upstream, timeout, importerror, incompatible, cannot import, downstream]
+---
 # Dependency Analyzer Agent
 
 

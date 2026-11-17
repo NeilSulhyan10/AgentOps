@@ -40,6 +40,7 @@ class InvestigationStatus(str, Enum):
     FAILED = "failed"
     MAX_ITERATIONS_REACHED = "max_iterations_reached"
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+    INTERRUPTED = "interrupted"          # the process running it stopped (restart, crash) before it finished
 
 
 class EvidenceType(str, Enum):

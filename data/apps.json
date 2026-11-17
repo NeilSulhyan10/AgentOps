@@ -1,0 +1,6 @@
+{
+  "shoplite": {
+    "name": "ShopLite",
+    "description": "A small, deliberately breakable FastAPI shop with a real CI pipeline. Each scenario is one way it can break."
+  }
+}

@@ -7,6 +7,8 @@ import type {
   RemediationRecommendation,
   TimelineEntry
 } from '../types';
+import type { AgentInfo, FlowTrace, Spawnable } from '../types/flow';
+import type { AppPage, AppSummary, Run } from '../types/apps';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
 
@@ -73,6 +75,44 @@ export const investigationApi = {
     const response = await api.get<RemediationRecommendation>(`/api/investigations/${investigationId}/remediation`);
     return response.data;
   },
+};
+
+export const flowApi = {
+  get: async (investigationId: string): Promise<FlowTrace> => {
+    const response = await api.get<FlowTrace>(`/api/investigations/${investigationId}/flow`);
+    return response.data;
+  },
+};
+
+export const agentApi = {
+  list: async (): Promise<{ specialists: AgentInfo[]; spawnable: Spawnable[] }> => {
+    const response = await api.get('/api/agents');
+    return response.data;
+  },
+
+  create: async (agent: {
+    name: string; description: string; layer: string; hypothesis: string; evidence_types: string[]; keywords: string[];
+  }): Promise<{ name: string; path: string }> => {
+    const response = await api.post('/api/agents', agent);
+    return response.data;
+  },
+};
+
+export const appApi = {
+  list: async (): Promise<AppSummary[]> => (await api.get('/api/apps')).data.apps,
+
+  get: async (appKey: string): Promise<AppPage> => (await api.get(`/api/apps/${appKey}`)).data,
+
+  runs: async (incidentId: string): Promise<{ expected_root_cause: string | null; runs: Run[] }> =>
+    (await api.get(`/api/incidents/${incidentId}/runs`)).data,
+
+  /** Start a scenario again. Earlier runs are kept; this adds a new one. */
+  investigate: async (scenarioId: string): Promise<{ investigation_id: string }> =>
+    (await api.post(`/api/scenarios/${scenarioId}/trigger`)).data,
+
+  /** Re-run the incident of an existing investigation (works for live incidents too). */
+  rerun: async (investigationId: string): Promise<{ investigation_id: string }> =>
+    (await api.post(`/api/investigations/${investigationId}/rerun`)).data,
 };
 
 export default api;

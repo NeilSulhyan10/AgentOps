@@ -1,21 +1,10 @@
-from typing import List, Optional, Dict, Any, Literal
+"""The JSON shape each agent's LLM answer must have. An answer that does not fit is discarded."""
+
+from typing import List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from backend.models import HypothesisType, AgentFinding, Evidence, RoutingDecision, RootCauseAnalysis, RemediationRecommendation, EvidenceType
 
-
-class LLMRequest(BaseModel):
-    prompt: str
-    system_prompt: Optional[str] = None
-    temperature: float = 0.1
-    max_tokens: int = 4096
-    metadata: Dict[str, Any] = {}
-
-
-class LLMResponse(BaseModel):
-    content: str
-    tokens_used: int = 0
-    model: str = ""
-    metadata: Dict[str, Any] = {}
+from backend.models import HypothesisType
 
 
 class RoutingDecisionResponse(BaseModel):

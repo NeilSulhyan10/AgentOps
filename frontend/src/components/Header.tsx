@@ -61,6 +61,8 @@ export function Header() {
             </div>
           </Link>
           <div className="flex items-center gap-4">
+            <Link to="/apps" className="text-sm font-medium text-dark-600 hover:text-primary-600 dark:text-dark-300">Apps</Link>
+            <Link to="/agents" className="text-sm font-medium text-dark-600 hover:text-primary-600 dark:text-dark-300">Agents</Link>
             <div className="flex items-center gap-1 text-sm text-dark-500 dark:text-dark-400">
               <Zap className="h-4 w-4" />
               <span>Adaptive Routing</span>

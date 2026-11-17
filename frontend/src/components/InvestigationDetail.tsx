@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { investigationApi } from '../api/client'
+import { appApi, investigationApi } from '../api/client'
 import { useInvestigationRealtime } from '../hooks/useInvestigationWS'
 import type { Evidence, InvestigationState, TimelineEntry, AgentType } from '../types'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/Card'
@@ -8,7 +8,7 @@ import { Badge } from './ui/Badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs'
 import { Progress } from './ui/Progress'
 import { Button } from './ui/Button'
-import { formatDate, formatIncidentId, getStatusColor, getAgentColor, formatConfidence, getConfidenceColor, truncate } from '../utils/helpers'
+import { agentLabel, formatDate, formatIncidentId, getStatusColor, getAgentColor, formatConfidence, getConfidenceColor, truncate } from '../utils/helpers'
 import { 
   AlertTriangle, 
   Brain, 
@@ -23,16 +23,14 @@ import {
   WifiOff,
   X,
   Copy,
-  Check
+  Check,
+  RotateCcw
 } from 'lucide-react'
 import { cn } from '../utils/helpers'
 import { ConfidenceChart } from './ConfidenceChart'
-
-const agentLabels: Record<AgentType, string> = {
-  cicd: 'CI/CD',
-  kubernetes: 'Kubernetes',
-  observability: 'Observability'
-}
+import { FlowView } from './flow/FlowView'
+import { RunsTable } from './runs/RunsTable'
+import type { Run } from '../types/apps'
 
 export function InvestigationDetail() {
   const { investigationId } = useParams<{ investigationId: string }>()
@@ -42,6 +40,8 @@ export function InvestigationDetail() {
   const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [runs, setRuns] = useState<Run[]>([])
+  const [rerunning, setRerunning] = useState(false)
   
   // Real-time WebSocket connection
   const { 
@@ -77,6 +77,26 @@ export function InvestigationDetail() {
 
     fetchData()
   }, [investigationId])
+
+  // Every run of this incident, for the History tab (refreshed when this run's status changes).
+  const incidentId = baseInvestigation?.incident_id
+  const runStatus = baseInvestigation?.investigation_status
+  useEffect(() => {
+    if (incidentId) appApi.runs(incidentId).then((r) => setRuns(r.runs)).catch(() => setRuns([]))
+  }, [incidentId, runStatus, investigationId])
+
+  const rerun = async () => {
+    if (!investigationId) return
+    setRerunning(true)
+    try {
+      const started = await appApi.rerun(investigationId)
+      navigate(`/investigation/${started.investigation_id}`)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setRerunning(false)
+    }
+  }
 
   // Merge real-time data with base investigation
   const realtimeInvestigation = useMemo(() => {
@@ -129,6 +149,10 @@ export function InvestigationDetail() {
           <p className="text-dark-500 dark:text-dark-400" title={inv.incident_id}>Incident: {formatIncidentId(inv.incident_id)}</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={rerun} disabled={rerunning} title="Investigate this incident again. This run is kept in History.">
+            {rerunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+            Re-investigate
+          </Button>
           {/* WebSocket Connection Status */}
           <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-dark-100 dark:bg-dark-800" title={connected ? 'Live updates connected' : 'Live updates disconnected; investigation details can still load'}>
             {connected ? (
@@ -149,7 +173,7 @@ export function InvestigationDetail() {
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 animate-pulse">
               <Loader2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
               <span className="text-sm font-medium text-primary-700 dark:text-primary-300">
-                {agentLabels[agentThinking.agent_type as AgentType]}: {agentThinking.status === 'thinking' ? 'Analyzing...' : agentThinking.status === 'started' ? 'Starting...' : 'Completed'}
+                {agentLabel(agentThinking.agent_type)}: {agentThinking.status === 'thinking' ? 'Analyzing...' : agentThinking.status === 'started' ? 'Starting...' : 'Completed'}
               </span>
             </div>
           )}
@@ -241,11 +265,11 @@ export function InvestigationDetail() {
         <Card>
           <CardHeader>
             <CardTitle>Agents Invoked</CardTitle>
-            <CardDescription>{inv.agents_invoked.length} of 3 agents</CardDescription>
+            <CardDescription>{new Set(inv.agents_invoked).size} specialist(s) consulted</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {['cicd', 'kubernetes', 'observability'].map((agent) => {
+              {Array.from(new Set(inv.agents_invoked)).map((agent) => {
                 const invoked = inv.agents_invoked.includes(agent as AgentType)
                 const confidence = inv.confidence_scores[agent as AgentType]
                 const isCurrentlyRunning = agentThinking?.agent_type === agent && agentThinking.status === 'thinking'
@@ -262,7 +286,7 @@ export function InvestigationDetail() {
                     )}
                   >
                     <span className={cn(getAgentColor(agent).replace('bg-', 'text-').replace('text-', 'text-'))}>
-                      {agentLabels[agent as AgentType]}
+                      {agentLabel(agent)}
                     </span>
                     {isCurrentlyRunning && <Loader2 className="h-3 w-3 text-primary-500 animate-spin" />}
                     {invoked && confidence && (
@@ -307,15 +331,17 @@ export function InvestigationDetail() {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="confidence">
             <BarChart2 className="h-4 w-4 mr-2" />
             Confidence
           </TabsTrigger>
+          <TabsTrigger value="flow">Flow</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="evidence">Evidence</TabsTrigger>
           <TabsTrigger value="rca">Root Cause</TabsTrigger>
+          <TabsTrigger value="history">History ({runs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -361,7 +387,7 @@ export function InvestigationDetail() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className={cn(getAgentColor(routingDecision.selected_agent))}>
-                        {agentLabels[routingDecision.selected_agent as AgentType]}
+                        {agentLabel(routingDecision.selected_agent)}
                       </Badge>
                       <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">Selected</span>
                     </div>
@@ -374,7 +400,7 @@ export function InvestigationDetail() {
                   <div className="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
 <Badge className={cn(getAgentColor(agentFinding.agent_type as AgentType))}>
-                      {agentLabels[agentFinding.agent_type as AgentType]}
+                      {agentLabel(agentFinding.agent_type)}
                     </Badge>
                       <span className="font-medium text-purple-700 dark:text-purple-300">Agent Finding (Just Completed)</span>
                     </div>
@@ -415,7 +441,7 @@ export function InvestigationDetail() {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
                                 <Badge className={cn(getAgentColor(finding.agent_type))}>
-                                  {agentLabels[finding.agent_type]}
+                                  {agentLabel(finding.agent_type)}
                                 </Badge>
                                 <Badge variant="secondary" className="text-xs">
                                   {finding.hypothesis.replace(/_/g, ' ')}
@@ -451,6 +477,26 @@ export function InvestigationDetail() {
           <ConfidenceChart confidenceHistory={inv.confidence_history} />
         </TabsContent>
 
+        <TabsContent value="history">
+          <Card>
+            <CardHeader>
+              <CardTitle>Runs of this incident</CardTitle>
+              <CardDescription>Every time this incident was investigated, newest first. Re-investigating adds a run and never overwrites an earlier one.</CardDescription>
+            </CardHeader>
+            <CardContent><RunsTable runs={runs} currentId={inv.investigation_id} /></CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="flow">
+          <FlowView
+            investigationId={inv.investigation_id}
+            running={inv.investigation_status === 'running' || inv.investigation_status === 'pending'}
+            refreshKey={liveEvents.length}
+            evidence={inv.evidence}
+            onOpenEvidence={setSelectedEvidence}
+          />
+        </TabsContent>
+
         <TabsContent value="timeline">
           <Card>
             <CardHeader>
@@ -481,7 +527,7 @@ export function InvestigationDetail() {
                             {event.type === 'agent_finding' && (
                               <>
                                 <span className={cn(getAgentColor(event.agent!))}>
-                                  {event.agent ? agentLabels[event.agent] : 'Agent'}
+                                  {event.agent ? agentLabel(event.agent) : 'Agent'}
                                 </span>
                                 <ArrowRight className="h-4 w-4 text-dark-400" />
                                 <span className="text-dark-500 dark:text-dark-400">{event.hypothesis?.replace(/_/g, ' ')}</span>
@@ -491,7 +537,7 @@ export function InvestigationDetail() {
                               <>
                                 <Brain className="h-4 w-4 text-blue-500" />
                                 <span className="text-dark-900 dark:text-dark-100">Routed to </span>
-                                <span className={cn(getAgentColor(event.selected_agent!))}>{agentLabels[event.selected_agent!]}</span>
+                                <span className={cn(getAgentColor(event.selected_agent!))}>{agentLabel(event.selected_agent!)}</span>
                               </>
                             )}
                             {event.type === 'confidence_update' && (
@@ -549,7 +595,7 @@ export function InvestigationDetail() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <Badge className={cn(getAgentColor(ev.agent_type))}>
-                                {agentLabels[ev.agent_type]}
+                                {agentLabel(ev.agent_type)}
                               </Badge>
                               <Badge variant="outline" className="text-xs capitalize">
                                 {ev.evidence_type.replace(/_/g, ' ')}
@@ -707,7 +753,7 @@ export function InvestigationDetail() {
 
 function describeLiveEvent(event: { update_type: string; data: Record<string, any> }): string {
   const agent = event.data.agent_type
-    ? agentLabels[event.data.agent_type as AgentType] || event.data.agent_type
+    ? agentLabel(event.data.agent_type) || event.data.agent_type
     : 'Agent'
 
   switch (event.update_type) {
@@ -716,7 +762,7 @@ function describeLiveEvent(event: { update_type: string; data: Record<string, an
     case 'progress':
       return `Iteration ${event.data.iteration} of ${event.data.max_iterations} · confidence ${formatConfidence(event.data.overall_confidence || 0)}`
     case 'routing_decision': {
-      const selected = agentLabels[event.data.selected_agent as AgentType] || event.data.selected_agent || 'an agent'
+      const selected = agentLabel(event.data.selected_agent) || event.data.selected_agent || 'an agent'
       return `Router selected ${selected}${event.data.reasoning ? ` — ${event.data.reasoning}` : ''}`
     }
     case 'agent_thinking':

@@ -169,3 +169,13 @@ class ProcessedRunDoc(Document):
     class Settings:
         name = "processed_runs"
         use_state_management = True
+
+class FlowEventsDoc(Document):
+    """The flow-log events of one finished investigation, so the Flow tab works from any backend process."""
+    investigation_id: str
+    events: List[Dict[str, Any]] = Field(default_factory=list)
+    saved_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "flow_events"
+        indexes = ["investigation_id"]

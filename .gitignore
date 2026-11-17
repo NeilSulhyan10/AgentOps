@@ -97,3 +97,5 @@ build/
 *.key
 *.crt
 secrets/
+# Generated flow reports (docs/showcase is committed on purpose)
+reports/

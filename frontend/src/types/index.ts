@@ -1,7 +1,9 @@
 export type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type IncidentStatus = 'open' | 'investigating' | 'resolved' | 'closed';
-export type AgentType = 'cicd' | 'kubernetes' | 'observability';
-export type InvestigationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'max_iterations_reached' | 'insufficient_evidence';
+// Agent names are the stems of the .md files in backend/agents/markdown (cicd_analyzer, cache_analyzer, ...).
+// New agents can appear at any time, so this is a plain string.
+export type AgentType = string;
+export type InvestigationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'max_iterations_reached' | 'insufficient_evidence' | 'interrupted';
 export type HypothesisType = 
   | 'deployment_induced_failure'
   | 'kubernetes_oom'

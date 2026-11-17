@@ -1,0 +1,32 @@
+{
+  "pods": [
+    {
+      "name": "checkout-service-5f6d7c8b9-a1b2c",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "310Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "420m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-19T22:00:00Z",
+      "events": []
+    },
+    {
+      "name": "checkout-service-5f6d7c8b9-d3e4f",
+      "namespace": "production",
+      "status": "Running",
+      "ready": true,
+      "restart_count": 0,
+      "exit_code": 0,
+      "memory_usage": "310Mi",
+      "memory_limit": "1Gi",
+      "cpu_usage": "420m",
+      "cpu_limit": "1000m",
+      "started_at": "2024-02-19T22:00:00Z",
+      "events": []
+    }
+  ]
+}

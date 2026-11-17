@@ -82,6 +82,10 @@ async def test_calculate_overall_confidence_single():
     assert calculate_overall_confidence({"cicd_analyzer": 0.9}) == 0.9
 
 
+@pytest.mark.skipif(
+    not os.getenv("AGENTOPS_TEST_MONGO"),
+    reason="writes to the MongoDB in MONGODB_URI; set AGENTOPS_TEST_MONGO=1 (and point MONGODB_URI at a throwaway database) to run",
+)
 @pytest.mark.asyncio
 async def test_state_manager(investigation_state):
     from backend.services.mongodb import mongodb

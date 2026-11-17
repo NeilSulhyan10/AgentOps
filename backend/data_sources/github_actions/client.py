@@ -100,6 +100,7 @@ class GitHubActionsClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, RateLimitError)),
+        reraise=True,  # callers handle RateLimitError / httpx errors, not tenacity.RetryError
     )
     async def _request(self, method: str, path: str, params: Dict = None, **kwargs) -> Dict[str, Any]:
         url = f"{self.base_url}{path}"

@@ -14,7 +14,7 @@ from backend.models import (
 )
 
 # Map evidence gap names → preferred agent name (md file stem)
-_GAP_AGENT_MAP: dict[str, str] = {
+GAP_AGENT_MAP: dict[str, str] = {
     "deployment_details": "cicd_analyzer",
     "configuration_changes": "cicd_analyzer",
     "pod_memory_status": "kubernetes_analyzer",
@@ -69,7 +69,7 @@ def select_next_agent(
 
     # 1. Evidence-gap based selection
     for gap in evidence_gaps:
-        preferred = _GAP_AGENT_MAP.get(gap)
+        preferred = GAP_AGENT_MAP.get(gap) or (f"{gap[:-7]}_analyzer" if gap.endswith("_health") else None)
         if preferred and preferred in available_agents:
             selected = preferred
             reasoning = f"Evidence gap '{gap}' maps to {preferred}"
@@ -81,7 +81,7 @@ def select_next_agent(
         if preferred and preferred in available_agents:
             selected = preferred
             reasoning = (
-                f"Hypothesis '{current_hypothesis}' maps to {preferred}"
+                f"Hypothesis '{getattr(current_hypothesis, 'value', current_hypothesis)}' maps to {preferred}"
             )
 
     # 3. Recent findings hint
@@ -90,7 +90,7 @@ def select_next_agent(
         if hint and hint in available_agents:
             selected = hint
             reasoning = (
-                f"Recent finding suggests {finding.hypothesis}; "
+                f"Recent finding suggests {getattr(finding.hypothesis, 'value', finding.hypothesis)}; "
                 f"routing to {hint}"
             )
             break
@@ -101,6 +101,14 @@ def select_next_agent(
         if last.verdict == "challenged" and last.suggested_agent in available_agents:
             selected = last.suggested_agent
             reasoning = f"Critic challenged the conclusion and suggested {selected}"
+
+    # 5. A specialist spawned for this incident has not run yet: it exists because nothing else covers its problem.
+    from backend.runtime.spawner import spawned_for
+    for name, spec in spawned_for(investigation.investigation_id).items():
+        if name in available_agents and name not in agents_invoked:
+            selected = name
+            reasoning = f"Spawned for this incident ({spec.description}); nothing else covers it, so it runs first"
+            break
 
     return selected, reasoning
 

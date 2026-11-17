@@ -1,10 +1,25 @@
-from typing import List, Dict, Any
-from backend.models import (
-    Incident,
-    AgentFinding,
-    HypothesisType,
-    Evidence
-)
+"""
+Rule-based Kubernetes specialist.
+
+Looks at pod exit codes, restarts, events and memory, and decides which of
+these it is (first match wins):
+
+    out of memory   exit 137 / OOMKilled / OOMKilling event      -> kubernetes_oom
+    memory pressure usage >= 90% of the limit, nothing killed yet -> kubernetes_oom (weaker)
+    startup crash   exits with a non-zero code that is not 137    -> application_error
+    failing probes  pods run but readiness/liveness checks fail   -> application_error (weaker)
+    healthy         exit 0, no restarts, memory comfortable       -> unknown ("nothing wrong here")
+
+A pod that merely *started* is never evidence of a problem.
+"""
+
+from typing import Any, Dict, List
+
+from backend.agents.signals import ids, mem_mi, of_type, result
+from backend.models import AgentFinding, Evidence, HypothesisType, Incident
+
+OOM_EVENTS = {"OOMKilling", "OutOfMemory"}
+PROBE_EVENTS = {"Unhealthy"}
 
 
 class KubernetesAgent:
@@ -14,103 +29,82 @@ class KubernetesAgent:
         self.agent_type = self.AGENT_NAME
 
     def investigate(self, incident: Incident, existing_evidence: List[Evidence]) -> AgentFinding:
-        # Use the passed evidence instead of loading from fixtures
-        finding = self._analyze_evidence(incident, existing_evidence)
-
+        found = self._analyze_evidence(incident, existing_evidence)
         return AgentFinding(
-            investigation_id="",
-            agent_type=self.agent_type,
-            hypothesis=finding["hypothesis"],
-            finding=finding["finding"],
-            evidence=finding["evidence"],
-            confidence=finding["confidence"],
-            reasoning=finding["reasoning"],
-            iteration=0
+            investigation_id="", agent_type=self.agent_type, iteration=0,
+            hypothesis=found["hypothesis"], finding=found["finding"], evidence=found["evidence"],
+            confidence=found["confidence"], reasoning=found["reasoning"],
         )
 
     def _analyze_evidence(self, incident: Incident, evidence: List[Evidence]) -> Dict[str, Any]:
-        if not evidence:
-            return {
-                "hypothesis": HypothesisType.UNKNOWN,
-                "finding": "No Kubernetes evidence found for this incident",
-                "evidence": [],
-                "confidence": 0.1,
-                "reasoning": "No pod or resource data available"
-            }
+        pods = of_type(evidence, "pod_exit_code")          # each one carries the whole pod record
+        restarts = of_type(evidence, "pod_restart_count")
+        events = of_type(evidence, "pod_event")
+        usage = of_type(evidence, "resource_usage")
+        if not (pods or restarts or events or usage):
+            return result(HypothesisType.UNKNOWN, "No Kubernetes evidence found for this incident", [], 0.1,
+                          "No pod or resource data available")
 
-        exit_code_evidence = [e for e in evidence if e.evidence_type == "pod_exit_code"]
-        restart_evidence = [e for e in evidence if e.evidence_type == "pod_restart_count"]
-        event_evidence = [e for e in evidence if e.evidence_type == "pod_event"]
-        usage_evidence = [e for e in evidence if e.evidence_type == "resource_usage"]
-        limit_evidence = [e for e in evidence if e.evidence_type == "resource_limit"]
+        oom_pods = [e for e in pods if e.raw_data.get("exit_code") == 137
+                    or e.raw_data.get("last_termination_reason") == "OOMKilled"
+                    or e.raw_data.get("status") == "OOMKilled"]
+        oom_events = [e for e in events if e.raw_data.get("reason") in OOM_EVENTS]
+        if oom_pods or oom_events:
+            proof = oom_pods + oom_events
+            return result(
+                HypothesisType.KUBERNETES_OOM,
+                f"{len(oom_pods)} pod(s) were OOMKilled (exit code 137): they used more memory than their limit allows",
+                ids(proof), 0.95 if oom_pods else 0.85,
+                "; ".join(e.description for e in proof[:4]),
+            )
 
-        findings = []
-        evidence_refs = []
-        confidence = 0.5
+        crashed = [e for e in pods if e.raw_data.get("exit_code") not in (0, None)
+                   or e.raw_data.get("status") == "CrashLoopBackOff"]
+        restarting = [e for e in restarts if e.raw_data.get("restart_count", 0) > 3]
+        if restarting and not crashed:
+            return result(
+                HypothesisType.APPLICATION_ERROR,
+                f"{len(restarting)} pod(s) keep restarting (up to {max(e.raw_data['restart_count'] for e in restarting)} times); "
+                "the logs or the application evidence must say why",
+                ids(restarting), 0.75, "; ".join(e.description for e in restarting[:3]),
+            )
+        if crashed:
+            codes = sorted({e.raw_data.get("exit_code") for e in crashed})
+            peak = max((self._memory_fraction(e) for e in usage), default=0.0)
+            return result(
+                HypothesisType.APPLICATION_ERROR,
+                f"{len(crashed)} pod(s) crash on startup with exit code {', '.join(map(str, codes))}; "
+                f"memory is only at {peak:.0%} of the limit, so this is not a resource problem",
+                ids(crashed + [e for e in events if e.raw_data.get("reason") in ("BackOff", "Failed")]), 0.8,
+                "; ".join(e.description for e in crashed[:3]),
+            )
 
-        oom_killed = False
-        for exc in exit_code_evidence:
-            code = exc.raw_data.get("exit_code", 0)
-            if code == 137:
-                findings.append(f"Pod OOMKilled (exit code 137): {exc.description}")
-                evidence_refs.append(exc.evidence_id)
-                oom_killed = True
-                confidence = max(confidence, 0.95)
-            elif code != 0:
-                findings.append(f"Pod exited with code {code}: {exc.description}")
-                evidence_refs.append(exc.evidence_id)
-                confidence = max(confidence, 0.8)
+        pressured = [e for e in usage if self._memory_fraction(e) >= 0.9]
+        if pressured:
+            return result(
+                HypothesisType.KUBERNETES_OOM,
+                "Memory is at 90% or more of the limit; the pod is close to being OOMKilled",
+                ids(pressured), 0.8, "; ".join(e.description for e in pressured[:3]),
+            )
 
-        for rst in restart_evidence:
-            count = rst.raw_data.get("restart_count", 0)
-            if count > 5:
-                findings.append(f"High restart count ({count}): {rst.description}")
-                evidence_refs.append(rst.evidence_id)
-                confidence = max(confidence, 0.85)
+        failing_probes = [e for e in events if e.raw_data.get("reason") in PROBE_EVENTS]
+        if failing_probes:
+            return result(
+                HypothesisType.APPLICATION_ERROR,
+                f"Pods are running but fail their health checks ({len(failing_probes)} events); "
+                "the fault is inside the application or something it depends on, not in Kubernetes",
+                ids(failing_probes), 0.6, "; ".join(e.description for e in failing_probes[:3]),
+            )
 
-        for evt in event_evidence:
-            reason = evt.raw_data.get("reason", "")
-            if reason in ["OOMKilling", "OutOfMemory", "Killing"]:
-                findings.append(f"OOM event detected: {evt.description}")
-                evidence_refs.append(evt.evidence_id)
-                oom_killed = True
-                confidence = max(confidence, 0.95)
+        peak = max((self._memory_fraction(e) for e in usage), default=0.0)
+        return result(
+            HypothesisType.UNKNOWN,
+            f"Pods look healthy: exit code 0, {sum(e.raw_data.get('restart_count', 0) for e in restarts)} restarts, "
+            f"memory at most {peak:.0%} of the limit",
+            ids(pods + restarts + usage), 0.3, "No crash, OOM, restart or probe failure in the Kubernetes evidence.",
+        )
 
-        for usage in usage_evidence:
-            usage_val = usage.raw_data.get("usage", "")
-            limit_val = usage.raw_data.get("limit", "")
-            findings.append(f"Resource usage near limit: {usage.description}")
-            evidence_refs.append(usage.evidence_id)
-            if "Mi" in str(usage_val) and "Gi" in str(limit_val):
-                try:
-                    usage_num = float(usage_val.replace("Mi", ""))
-                    limit_num = float(limit_val.replace("Gi", "")) * 1024
-                    if usage_num / limit_num > 0.9:
-                        findings.append(f"Memory usage at {usage_num/limit_num*100:.0f}% of limit")
-                        confidence = max(confidence, 0.9)
-                except:
-                    pass
-
-        if oom_killed:
-            hypothesis = HypothesisType.KUBERNETES_OOM
-            finding_text = "Pod was OOMKilled due to memory exhaustion"
-            confidence = max(confidence, 0.92)
-        elif restart_evidence and any(r.raw_data.get("restart_count", 0) > 3 for r in restart_evidence):
-            hypothesis = HypothesisType.KUBERNETES_OOM
-            finding_text = "Pod experiencing frequent restarts, possible resource pressure"
-            confidence = max(confidence, 0.8)
-        elif event_evidence:
-            hypothesis = HypothesisType.KUBERNETES_OOM
-            finding_text = "Kubernetes events indicate pod issues"
-            confidence = max(confidence, 0.7)
-        else:
-            hypothesis = HypothesisType.UNKNOWN
-            finding_text = "Kubernetes evidence found but no clear failure pattern"
-
-        return {
-            "hypothesis": hypothesis,
-            "finding": finding_text,
-            "evidence": evidence_refs,
-            "confidence": round(confidence, 2),
-            "reasoning": "; ".join(findings) if findings else "No specific findings"
-        }
+    @staticmethod
+    def _memory_fraction(item: Evidence) -> float:
+        used, limit = mem_mi(item.raw_data.get("usage")), mem_mi(item.raw_data.get("limit"))
+        return used / limit if used is not None and limit else 0.0

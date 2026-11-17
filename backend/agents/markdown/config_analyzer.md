@@ -1,3 +1,10 @@
+---
+description: Configuration changes - env vars, secrets, probes, ports
+layer: config
+hypothesis: configuration_error
+evidence_types: [config_change, pod_event, log]
+keywords: [probe, env, secret, configmap, config, port, unhealthy, missing]
+---
 # Config Analyzer Agent
 
 

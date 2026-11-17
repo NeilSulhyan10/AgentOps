@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, WebSocket, WebSocketDisconnect
 from typing import List, Optional
+from pydantic import BaseModel, Field
 from backend.models import (
     Incident,
     InvestigationState,
@@ -297,3 +298,146 @@ async def get_remediation(investigation_id: str):
 async def investigation_websocket_route(websocket: WebSocket, investigation_id: str):
     """WebSocket endpoint for real-time investigation updates."""
     await investigation_websocket(websocket, investigation_id)
+
+
+@investigation_router.get("/{investigation_id}/flow")
+async def get_investigation_flow(investigation_id: str):
+    """The step-by-step story of one investigation, with the pipeline and app diagrams as data."""
+    from backend.flow import build_trace
+    from backend.flow.export import trace_to_dict
+    from backend.services.flow_store import load_flow_events
+
+    events = await load_flow_events(investigation_id)
+    if not events:
+        raise HTTPException(status_code=404, detail="No flow events for this investigation: it ran before flow recording existed, or its log was lost")
+    return trace_to_dict(build_trace(events))
+
+
+# ---------------------------------------------------------------------------
+# Agents: list the specialists, add a new one without touching Python
+# ---------------------------------------------------------------------------
+
+agents_router = APIRouter(prefix="/agents", tags=["agents"])
+
+
+class NewAgent(BaseModel):
+    name: str = Field(..., description="lowercase, e.g. cache_analyzer")
+    description: str
+    layer: str = "service"
+    hypothesis: str = "application_error"
+    evidence_types: List[str] = ["log"]
+    keywords: List[str]
+
+
+@agents_router.get("")
+async def list_agents():
+    """Every specialist the router can pick, and the kinds of problem the spawner can create on demand."""
+    from backend.runtime.agent_loader import get_agent_loader
+    from backend.runtime.spawner import FOCUS_CATALOG
+
+    return {
+        "specialists": [spec.to_dict() for spec in get_agent_loader().get_specs()],
+        "spawnable": [
+            {"name": f"{f.key}_analyzer", "title": f.title, "layer": f.layer, "looks_for": f.looks_for, "keywords": list(f.keywords)}
+            for f in FOCUS_CATALOG.values()
+        ],
+    }
+
+
+@agents_router.post("", status_code=status.HTTP_201_CREATED)
+async def create_agent(body: NewAgent):
+    """Write a new specialist (.md with front-matter) and load it; it is used by every later investigation."""
+    from backend.models import HypothesisType
+    from backend.runtime import reload_agent_runner
+    from backend.runtime.agent_spec import AgentSpec
+    from backend.runtime.spawner import save_agent
+
+    if body.hypothesis not in {h.value for h in HypothesisType}:
+        raise HTTPException(status_code=422, detail=f"hypothesis must be one of {[h.value for h in HypothesisType]}")
+    spec = AgentSpec(name=body.name, description=body.description, layer=body.layer, hypothesis=body.hypothesis,
+                     evidence_types=[e.lower() for e in body.evidence_types], keywords=[k.lower() for k in body.keywords])
+    try:
+        path = save_agent(spec)
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    await reload_agent_runner()
+    return {"name": spec.name, "path": str(path)}
+
+
+# ---------------------------------------------------------------------------
+# Apps and run history: one page per application, every run kept
+# ---------------------------------------------------------------------------
+
+apps_router = APIRouter(prefix="/apps", tags=["apps"])
+
+
+def _with_match(run: dict, expected: Optional[str]) -> dict:
+    """Mark a finished run MATCH / MISMATCH against the scenario's ground truth (None when unknown)."""
+    done = run["status"] in ("completed", "max_iterations_reached") and run["root_cause_type"]
+    return {**run, "matches_expected": (run["root_cause_type"] == expected) if (expected and done) else None}
+
+
+@apps_router.get("")
+async def list_all_apps():
+    """Every app with how often it has been investigated and how the latest run ended."""
+    from backend.services import apps as app_catalogue
+    from backend.services.history import runs_by_incident
+
+    runs = await runs_by_incident()
+    result = []
+    for app in app_catalogue.list_apps():
+        app_runs = sorted((r for s in app["scenarios"] for r in runs.get(s["scenario_id"], [])), key=lambda r: r["created_at"], reverse=True)
+        result.append({
+            **{k: app[k] for k in ("key", "name", "description")},
+            "scenario_count": len(app["scenarios"]),
+            "run_count": len(app_runs),
+            "last_run": app_runs[0] if app_runs else None,
+        })
+    return {"apps": result}
+
+
+@apps_router.get("/{app_key}")
+async def get_app_page(app_key: str):
+    """One app: each scenario with its runs (newest first) and, where known, whether the answer matched the ground truth."""
+    from backend.services import apps as app_catalogue
+    from backend.services.history import runs_by_incident
+
+    app = app_catalogue.get_app(app_key)
+    if not app:
+        raise HTTPException(status_code=404, detail=f"Unknown app: {app_key}")
+    runs = await runs_by_incident([s["scenario_id"] for s in app["scenarios"]])
+    for scenario in app["scenarios"]:
+        scenario["runs"] = [_with_match(r, scenario["expected_root_cause"]) for r in runs.get(scenario["scenario_id"], [])]
+    return app
+
+
+@router.get("/{incident_id}/runs")
+async def incident_runs(incident_id: str):
+    """Every investigation of this incident, newest first."""
+    from backend.services import apps as app_catalogue
+    from backend.services.history import runs_by_incident
+
+    expected = app_catalogue.expected_root_cause(incident_id)
+    return {"incident_id": incident_id, "expected_root_cause": expected,
+            "runs": [_with_match(r, expected) for r in (await runs_by_incident([incident_id])).get(incident_id, [])]}
+
+
+@investigation_router.post("/{investigation_id}/rerun", response_model=InvestigationResponse, status_code=status.HTTP_201_CREATED)
+async def rerun_investigation(investigation_id: str):
+    """Investigate the same incident again. The previous run is kept; this creates a new one."""
+    import uuid
+
+    previous = await investigation_service.get_investigation(investigation_id)
+    if not previous or not previous.incident:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+    try:
+        load_scenario_incident(previous.incident_id)
+        evidence = []        # a scenario: the graph reloads its evidence from the fixtures
+    except KeyError:         # a live incident: reuse the CI/CD evidence it arrived with, under new ids
+        evidence = [e.model_copy(update={"evidence_id": str(uuid.uuid4())}) for e in previous.evidence
+                    if str(e.source).startswith("github_actions")]
+    fresh = await investigation_service.start_investigation(previous.incident, evidence=evidence)
+    return InvestigationResponse(investigation_id=fresh.investigation_id, status=fresh.investigation_status,
+                                 message=f"Re-investigating {previous.incident_id} (previous run kept)")

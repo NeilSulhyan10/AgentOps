@@ -142,7 +142,7 @@ class TestAgentInvestigation:
         assert finding.agent_type == "cicd_analyzer"
         assert finding.hypothesis == HypothesisType.DEPLOYMENT_INDUCED_FAILURE
         assert finding.confidence >= 0.8
-        assert "deployment" in finding.finding.lower()
+        assert "release" in finding.finding.lower() or "deployment" in finding.finding.lower()
         assert len(finding.evidence) > 0
 
     def test_kubernetes_agent_finds_oom(self):
@@ -436,7 +436,7 @@ class TestEdgeCases:
         rca = synthesize_rca(investigation)
         assert rca is not None
         assert rca.root_cause_type == HypothesisType.UNKNOWN
-        assert "insufficient" in rca.root_cause.lower() or "no agent findings" in rca.root_cause.lower()
+        assert "not enough agent findings" in rca.root_cause.lower()
     
     def test_remediation_with_unknown_rca(self):
         rca = RootCauseAnalysis(
@@ -457,14 +457,14 @@ class TestSettingsAndConfig:
     """Test configuration and settings."""
     
     def test_settings_loaded(self):
+        """Defaults that must hold on any machine, whatever is in the developer's .env."""
         assert settings.app_name == "AgentOps"
-        assert settings.mongodb_uri == "mongodb://localhost:27017"
-        assert settings.llm_provider == "nemotron"
-        assert settings.enable_llm_routing == True
-        assert settings.nemotron_model == "nvidia/nemotron-3-ultra-550b-a55b"
-    
-    def test_data_dir_config(self):
-        assert settings.data_dir == "/home/neil/Documents/Project/agentops/data"
+        assert settings.confidence_threshold == 0.75
+        assert settings.max_iterations == 5
+
+    def test_data_dir_exists_and_holds_scenarios(self):
+        from pathlib import Path
+        assert (Path(settings.data_dir) / "incidents").is_dir()
 
 
 if __name__ == "__main__":

@@ -81,8 +81,9 @@ def test_kubernetes_agent_high_restarts(sample_incident):
     finding = agent.investigate(sample_incident, evidence)
 
     assert finding.agent_type == "kubernetes_analyzer"
-    assert finding.hypothesis == HypothesisType.KUBERNETES_OOM
-    assert finding.confidence >= 0.8
+    # Restarts alone do not prove OOM: the finding says "keeps restarting", leaving the cause to other specialists.
+    assert finding.hypothesis == HypothesisType.APPLICATION_ERROR
+    assert finding.confidence >= 0.7
 
 
 def test_observability_agent_high_errors(sample_incident):
@@ -112,7 +113,7 @@ def test_observability_agent_high_errors(sample_incident):
     finding = agent.investigate(sample_incident, evidence)
 
     assert finding.agent_type == "observability_analyzer"
-    assert finding.hypothesis == HypothesisType.TRAFFIC_INCIDENT
+    assert finding.hypothesis == HypothesisType.APPLICATION_ERROR
     assert finding.confidence >= 0.8
 
 

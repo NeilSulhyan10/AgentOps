@@ -1,19 +1,41 @@
 """
 Investigation Graph
 
-Builds a LangGraph StateGraph that drives the investigation pipeline.
+The investigation is a LangGraph state machine.  Each node is one function in
+this file, in the order an investigation meets them:
 
-Key design: a single generic `invoke_agent` node handles ALL specialist agents.
-The router writes the chosen agent name (a plain string matching a .md filename
-stem) into GraphState["current_agent"].  Adding a new specialist agent requires
-only dropping a .md file into agents/markdown/ — no code changes.
+    normalize -> pre_filter -> load_evidence -> spawn_agent -> route -> invoke_agent -> evaluate
+                                                  ^            ^            |             |
+                                                  |            |            |   not sure  |
+                                                  |            |            +-------------+
+                                                  |            |                          | confident
+                                                  |            |  challenged              v
+                                                  |            +---------------------- critique
+                                                  |                                       | confirmed
+                                                  +-- (spawn_agent creates a specialist   v
+                                                       only when no existing one covers  generate_rca -> persist
+                                                       a problem, then hands over to route)
+
+A single generic `invoke_agent` node handles ALL specialist agents.  The router
+writes the chosen agent name (the stem of a file in agents/markdown/) into
+GraphState["current_agent"], so adding a specialist means adding a .md file.
+
+Every node is wrapped by `_logged`, which writes a `node_failed` flow event
+naming the node when it raises.  That is how a flow report knows where an
+investigation broke.
+
+To run the graph use `run_investigation` in backend/orchestrator/run.py.
 """
 
-from typing import Dict, List, Any, Optional, TypedDict, Annotated
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
+import inspect
+import re
 import logging
 import time
+from datetime import datetime
+from typing import Annotated, Any, Callable, Dict, List, Optional, TypedDict
+
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
 
 from backend.models import (
     InvestigationState,
@@ -28,11 +50,12 @@ from backend.models import (
     InvestigationStatus,
     EvidenceType,
 )
-from backend.tools.data_access import get_cicd_evidence, get_kubernetes_evidence, get_observability_evidence
-from backend.runtime import get_agent_runner
-from backend.orchestrator.router import select_next_agent
+from backend.config import settings
 from backend.events import broadcast_agent_thinking
-from backend.flow_logger import log_flow
+from backend.flow.log import log_flow
+from backend.orchestrator.router import select_next_agent
+from backend.runtime import get_agent_runner
+from backend.tools.data_access import get_cicd_evidence_from_fixture, get_kubernetes_evidence, get_observability_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +88,11 @@ def normalize_incident(state: GraphState) -> GraphState:
     return {"investigation": investigation, "next_action": "pre_filter"}
 
 
+def _without_negated(text: str) -> str:
+    """Lower-case text with clauses like 'no OOM', 'not ready', 'without errors' removed."""
+    return re.sub(r"\b(?:no|not|without|never|zero|nor)\b[^.;,\n]{0,60}", " ", text.lower())
+
+
 def rule_based_pre_filter(state: GraphState) -> GraphState:
     investigation = state["investigation"]
     incident = investigation.incident
@@ -72,16 +100,20 @@ def rule_based_pre_filter(state: GraphState) -> GraphState:
     evidence_gaps: List[str] = []
     initial_hypothesis = HypothesisType.UNKNOWN
 
-    description = incident.description.lower()
-    title = incident.title.lower()
+    # "No recent deployments" must not look like a deployment: drop negated clauses first.
+    description = _without_negated(incident.description)
+    title = _without_negated(incident.title)
 
     if any(kw in description or kw in title for kw in ["deployment", "deploy", "rollout", "canary", "release"]):
         evidence_gaps.append("deployment_details")
         initial_hypothesis = HypothesisType.DEPLOYMENT_INDUCED_FAILURE
 
-    if any(kw in description or kw in title for kw in ["oom", "memory", "killed", "exit code 137", "137", "crashloop"]):
+    if any(kw in description or kw in title for kw in ["oom", "memory", "killed", "exit code 137", "137"]):
         evidence_gaps.append("pod_memory_status")
         initial_hypothesis = HypothesisType.KUBERNETES_OOM
+
+    if any(kw in description or kw in title for kw in ["crashloop", "restart", "crash"]):
+        evidence_gaps.append("pod_restart_pattern")
 
     if any(kw in description or kw in title for kw in ["latency", "slow", "timeout", "p99", "p95", "5xx", "error rate", "errors"]):
         evidence_gaps.append("observability_metrics")
@@ -102,6 +134,12 @@ def rule_based_pre_filter(state: GraphState) -> GraphState:
         evidence_gaps.append("traffic_pattern")
         if initial_hypothesis == HypothesisType.UNKNOWN:
             initial_hypothesis = HypothesisType.TRAFFIC_INCIDENT
+
+    # Problems no standard specialist owns (cache, queue, DNS, disk...) become "<focus>_health" gaps;
+    # the spawn_agent node creates a specialist for each.
+    from backend.runtime.spawner import find_focuses
+    for focus in find_focuses(f"{title} {description}")[:2]:
+        evidence_gaps.append(f"{focus.key}_health")
 
     investigation.current_hypothesis = initial_hypothesis
     investigation.evidence_gaps = evidence_gaps
@@ -124,16 +162,22 @@ def load_evidence(state: GraphState) -> GraphState:
         f"existing={len(investigation.evidence)}"
     )
 
+    # Incidents created by the GitHub monitor arrive with their CI/CD evidence
+    # attached.  Everything else is read from the fixture files in data/.
     has_github_evidence = any(
         ev.source in ("github_actions", "github_actions_job_logs")
         for ev in investigation.evidence
     )
+    if settings.fault_injection == "missing_evidence":
+        investigation.evidence.clear()   # demo fault: pretend nothing could be loaded
+    else:
+        if not has_github_evidence:
+            investigation.evidence.extend(get_cicd_evidence_from_fixture(investigation.incident))
+        investigation.evidence.extend(get_kubernetes_evidence(investigation.incident))
+        investigation.evidence.extend(get_observability_evidence(investigation.incident))
 
-    if not has_github_evidence:
-        investigation.evidence.extend(get_cicd_evidence(investigation.incident))
-
-    investigation.evidence.extend(get_kubernetes_evidence(investigation.incident))
-    investigation.evidence.extend(get_observability_evidence(investigation.incident))
+    for item in investigation.evidence:
+        item.investigation_id = investigation.investigation_id
 
     logger.info(
         f"load_evidence: {investigation.investigation_id}, "
@@ -144,6 +188,49 @@ def load_evidence(state: GraphState) -> GraphState:
         total_evidence=len(investigation.evidence),
         sources=sorted({str(ev.source) for ev in investigation.evidence}),
     )
+    return {"investigation": investigation, "next_action": "route"}
+
+
+# ---------------------------------------------------------------------------
+# Spawn node - creates a specialist when nothing available covers a problem
+# ---------------------------------------------------------------------------
+
+def specialist_names(investigation_id: str) -> List[str]:
+    """Specialists the router may pick: the .md files plus anything spawned for this investigation."""
+    from backend.runtime.agent_loader import get_specialist_agent_names
+    from backend.runtime.spawner import spawned_for
+    return get_specialist_agent_names() + [n for n in spawned_for(investigation_id) if n not in get_specialist_agent_names()]
+
+
+def spawn_requests(investigation: InvestigationState) -> list:
+    """What could need a new specialist: gaps the pre-filter could not assign to anyone, and what the critic says is missing."""
+    from backend.runtime.spawner import FOCUS_CATALOG, requests_from_text
+
+    requests = [
+        (FOCUS_CATALOG[gap[:-7]], f"The incident mentions {FOCUS_CATALOG[gap[:-7]].title.lower()} and no specialist covers it: \"{investigation.incident.title}\"")
+        for gap in investigation.evidence_gaps if gap.endswith("_health") and gap[:-7] in FOCUS_CATALOG
+    ]
+    if investigation.critic_reviews and investigation.critic_reviews[-1].verdict == "challenged":
+        last = investigation.critic_reviews[-1]
+        requests += requests_from_text(list(last.missing_checks) + list(last.concerns))
+    return requests
+
+
+def spawn_agent(state: GraphState) -> GraphState:
+    """Create specialists for problems no available specialist covers (see backend/runtime/spawner.py)."""
+    from backend.runtime.spawner import spawn
+
+    investigation = state["investigation"]
+    made = spawn(investigation.investigation_id, spawn_requests(investigation), specialist_names(investigation.investigation_id))
+    for spec in made:
+        gap = f"{spec.name.replace('_analyzer', '')}_health"
+        if gap not in investigation.evidence_gaps:
+            investigation.evidence_gaps.insert(0, gap)
+        log_flow(
+            investigation.investigation_id, "agent_spawned",
+            agent=spec.name, layer=spec.layer, hypothesis=spec.hypothesis,
+            description=spec.description, keywords=spec.keywords, reason=spec.reason,
+        )
     return {"investigation": investigation, "next_action": "route"}
 
 
@@ -171,8 +258,7 @@ async def adaptive_router(state: GraphState) -> GraphState:
         }
 
     # Discover available agents from loaded md files
-    from backend.runtime.agent_loader import get_specialist_agent_names
-    all_specialist_names = get_specialist_agent_names()
+    all_specialist_names = specialist_names(investigation.investigation_id)
 
     agents_invoked: List[str] = investigation.agents_invoked
     available_agents = [a for a in all_specialist_names if a not in agents_invoked]
@@ -195,17 +281,21 @@ async def adaptive_router(state: GraphState) -> GraphState:
         evidence_summary=evidence_summary,
         findings_summary=findings_summary,
         critic_feedback=critic_feedback,
+        investigation_id=investigation.investigation_id,
     )
 
     llm_choice = selected_agent
     router_fallback = selected_agent not in available_agents
     router_ms = round((time.perf_counter() - router_started) * 1000)
 
-    # Validate — fall back to deterministic router if LLM returned something unknown
+    # No usable LLM choice (rule-based mode, unusable answer, or an unknown agent name):
+    # the rule-based router decides.
     if selected_agent not in available_agents:
-        selected_agent, fallback_reason = select_next_agent(investigation, available_agents)
-        reasoning = f"LLM router returned unavailable agent; deterministic fallback: {fallback_reason}"
+        selected_agent, reasoning = select_next_agent(investigation, available_agents)
+        if llm_choice:
+            reasoning = f"LLM chose unavailable agent '{llm_choice}'; rule-based router: {reasoning}"
 
+    investigation.iteration_count += 1
     decision = RoutingDecision(
         investigation_id=investigation.investigation_id,
         iteration=investigation.iteration_count,
@@ -217,7 +307,6 @@ async def adaptive_router(state: GraphState) -> GraphState:
         reasoning=reasoning,
     )
     investigation.routing_decisions.append(decision)
-    investigation.iteration_count += 1
     log_flow(
         investigation.investigation_id, "route",
         iteration=investigation.iteration_count,
@@ -265,13 +354,10 @@ async def invoke_agent(state: GraphState) -> GraphState:
             evidence=investigation.evidence,
             previous_findings=investigation.agent_findings,
             critic_feedback=runner.format_critic_feedback(investigation.critic_reviews),
+            investigation_id=investigation.investigation_id,
         )
-    except Exception as exc:
-        log_flow(
-            investigation.investigation_id, "agent_failed",
-            agent=agent_name, error=repr(exc),
-            duration_ms=round((time.perf_counter() - agent_started) * 1000),
-        )
+    except Exception:
+        # The `_logged` wrapper records the failure in the flow log; here we only tell the UI.
         await broadcast_agent_thinking(investigation.investigation_id, agent_name, "failed")
         raise
 
@@ -290,15 +376,15 @@ async def invoke_agent(state: GraphState) -> GraphState:
         item for item in investigation.evidence
         if item.evidence_id in finding.evidence
     ]
-    investigation.confidence_scores[agent_name] = (
-        finding.confidence if matching_evidence else 0.0
-    )
+    from backend.orchestrator.scoring import score_finding
+    investigation.confidence_scores[agent_name] = score_finding(finding, investigation.evidence).score
     log_flow(
         investigation.investigation_id, "agent_finding",
         agent=agent_name, iteration=investigation.iteration_count,
         hypothesis=finding.hypothesis, confidence=finding.confidence,
         grounded_evidence=len(matching_evidence),
-        cited_evidence=len(finding.evidence),
+        cited_evidence=len(finding.evidence), evidence_ids=list(finding.evidence),
+        reasoning=finding.reasoning[:400],
         finding=finding.finding[:300],
         duration_ms=round((time.perf_counter() - agent_started) * 1000),
     )
@@ -338,17 +424,15 @@ def evaluate_evidence(state: GraphState) -> GraphState:
 
 
 def _evaluate_evidence(investigation: InvestigationState) -> GraphState:
-    from backend.orchestrator.confidence import calculate_overall_confidence
-    from backend.config import settings
+    from backend.orchestrator.scoring import score_investigation
 
-    evidence_ids = {item.evidence_id for item in investigation.evidence}
-    grounded_confidences = {
-        finding.agent_type: finding.confidence
-        for finding in investigation.agent_findings
-        if finding.evidence and any(ref in evidence_ids for ref in finding.evidence)
-    }
-    overall_confidence = calculate_overall_confidence(grounded_confidences)
+    breakdown = score_investigation(investigation.agent_findings, investigation.evidence, investigation.evidence_gaps)
+    grounded_confidences = {f.agent: f.score for f in breakdown.findings if f.grounding > 0}
+    overall_confidence = breakdown.overall
     investigation.overall_confidence = overall_confidence
+    from backend.orchestrator.causal import found_nothing
+    from backend.orchestrator.critic import grounded_findings
+    all_clear = found_nothing(grounded_findings(investigation.agent_findings, investigation.evidence))
 
     entry = ConfidenceEntry(
         investigation_id=investigation.investigation_id,
@@ -356,7 +440,7 @@ def _evaluate_evidence(investigation: InvestigationState) -> GraphState:
         agent_confidences=grounded_confidences.copy(),
         overall_confidence=overall_confidence,
         threshold=settings.confidence_threshold,
-        is_sufficient=overall_confidence >= settings.confidence_threshold,
+        is_sufficient=overall_confidence >= settings.confidence_threshold or all_clear,
     )
     investigation.confidence_history.append(entry)
     log_flow(
@@ -366,10 +450,11 @@ def _evaluate_evidence(investigation: InvestigationState) -> GraphState:
         overall_confidence=overall_confidence,
         threshold=settings.confidence_threshold,
         is_sufficient=entry.is_sufficient,
+        all_clear=all_clear, breakdown=breakdown.to_dict(),
     )
 
-    if overall_confidence >= settings.confidence_threshold:
-        investigation.investigation_status = InvestigationStatus.COMPLETED
+    # Only generate_rca sets a finished status; "completed" before the RCA exists would be a lie.
+    if entry.is_sufficient:
         return {"investigation": investigation, "next_action": "generate_rca", "should_continue": False}
     elif investigation.iteration_count >= investigation.max_iterations:
         investigation.investigation_status = InvestigationStatus.MAX_ITERATIONS_REACHED
@@ -385,15 +470,12 @@ async def critique(state: GraphState) -> GraphState:
     and the specialists still unused); otherwise it proceeds to the RCA with the
     confidence capped by the critic's own assessment.
     """
-    from backend.config import settings
-    from backend.runtime.agent_loader import get_specialist_agent_names
-
     investigation = state["investigation"]
     if not settings.enable_critic or not investigation.agent_findings:
         return {"investigation": investigation, "next_action": "generate_rca", "should_continue": False}
 
     runner = await get_agent_runner()
-    unused = [a for a in get_specialist_agent_names() if a not in investigation.agents_invoked]
+    unused = [a for a in specialist_names(investigation.investigation_id) if a not in investigation.agents_invoked]
     round_no = len(investigation.critic_reviews) + 1
 
     started = time.perf_counter()
@@ -407,23 +489,27 @@ async def critique(state: GraphState) -> GraphState:
         previous_reviews=investigation.critic_reviews,
         round_no=round_no,
         investigation_id=investigation.investigation_id,
+        evidence_gaps=list(investigation.evidence_gaps),
     )
     investigation.critic_reviews.append(review)
-    if review.verdict == "challenged":
-        investigation.overall_confidence = min(investigation.overall_confidence, review.confidence)
+    from backend.orchestrator.scoring import score_investigation
+    breakdown = score_investigation(investigation.agent_findings, investigation.evidence, investigation.evidence_gaps, review)
+    investigation.overall_confidence = breakdown.overall      # a challenge that is still open lowers it (x0.8)
 
+    can_spawn = bool(spawn_requests(investigation)) if review.verdict == "challenged" else False
     can_loop = (
         review.verdict == "challenged"
         and round_no < settings.critic_max_rounds
         and investigation.iteration_count < investigation.max_iterations
-        and bool(unused)
+        and (bool(unused) or can_spawn)
     )
     log_flow(
         investigation.investigation_id, "critic",
         round=round_no, verdict=review.verdict, hypothesis=review.assessed_hypothesis,
         confidence=review.confidence, concerns=review.concerns,
         missing_checks=review.missing_checks, suggested_agent=review.suggested_agent,
-        looping_back=can_loop, duration_ms=round((time.perf_counter() - started) * 1000),
+        looping_back=can_loop, breakdown=breakdown.to_dict(),
+        duration_ms=round((time.perf_counter() - started) * 1000),
     )
     await broadcast_agent_thinking(investigation.investigation_id, "critic", "completed")
 
@@ -433,7 +519,7 @@ async def critique(state: GraphState) -> GraphState:
             gap = f"critic: {check}"
             if gap not in investigation.evidence_gaps:
                 investigation.evidence_gaps.append(gap)
-        return {"investigation": investigation, "next_action": "route", "should_continue": True}
+        return {"investigation": investigation, "next_action": "spawn_agent", "should_continue": True}
 
     return {"investigation": investigation, "next_action": "generate_rca", "should_continue": False}
 
@@ -452,6 +538,7 @@ async def _generate_rca(investigation: InvestigationState) -> GraphState:
         routing_decisions=investigation.routing_decisions,
         confidence_history=investigation.confidence_history,
         critic_feedback=runner.format_critic_feedback(investigation.critic_reviews),
+        investigation_id=investigation.investigation_id,
     )
     rca.investigation_id = investigation.investigation_id
     investigation.root_cause = rca
@@ -460,6 +547,7 @@ async def _generate_rca(investigation: InvestigationState) -> GraphState:
         root_cause=rca.root_cause if rca else "Unknown",
         root_cause_type=rca.root_cause_type if rca else HypothesisType.UNKNOWN,
         confidence=investigation.overall_confidence,
+        investigation_id=investigation.investigation_id,
     )
     remediation.investigation_id = investigation.investigation_id
     remediation.rca_id = rca.rca_id if rca else ""
@@ -471,7 +559,7 @@ async def _generate_rca(investigation: InvestigationState) -> GraphState:
     ):
         investigation.investigation_status = InvestigationStatus.COMPLETED
 
-    investigation.completed_at = investigation.updated_at
+    investigation.completed_at = datetime.utcnow()
     log_flow(
         investigation.investigation_id, "rca",
         status=investigation.investigation_status,
@@ -493,28 +581,55 @@ async def persist_investigation(state: GraphState) -> GraphState:
 # Graph construction
 # ---------------------------------------------------------------------------
 
+def _logged(node_name: str, node: Callable) -> Callable:
+    """Wrap a node so that an exception is written to the flow log with the node's name."""
+
+    async def run_node(state: GraphState):
+        started = time.perf_counter()
+        try:
+            result = node(state)
+            return await result if inspect.isawaitable(result) else result
+        except Exception as exc:
+            log_flow(
+                state["investigation"].investigation_id, "node_failed",
+                node=node_name,
+                agent=state.get("current_agent") if node_name == "invoke_agent" else None,
+                error=f"{type(exc).__name__}: {exc}",
+                duration_ms=round((time.perf_counter() - started) * 1000),
+            )
+            raise
+
+    return run_node
+
+
 def build_investigation_graph() -> StateGraph:
+    """
+    Wire the nodes together.  backend/flow/diagram.py draws this same graph;
+    tests/test_flow.py fails if the two drift apart.
+    """
     workflow = StateGraph(GraphState)
 
-    # Static pipeline nodes
-    workflow.add_node("normalize", normalize_incident)
-    workflow.add_node("pre_filter", rule_based_pre_filter)
-    workflow.add_node("load_evidence", load_evidence)
-    workflow.add_node("route", adaptive_router)
-
-    # Single generic specialist node — handles every agent type
-    workflow.add_node("invoke_agent", invoke_agent)
-
-    workflow.add_node("evaluate", evaluate_evidence)
-    workflow.add_node("critique", critique)
-    workflow.add_node("generate_rca", generate_rca)
-    workflow.add_node("persist", persist_investigation)
+    nodes = {
+        "normalize": normalize_incident,
+        "pre_filter": rule_based_pre_filter,
+        "load_evidence": load_evidence,
+        "spawn_agent": spawn_agent,
+        "route": adaptive_router,
+        "invoke_agent": invoke_agent,      # one generic node for every specialist
+        "evaluate": evaluate_evidence,
+        "critique": critique,
+        "generate_rca": generate_rca,
+        "persist": persist_investigation,
+    }
+    for name, node in nodes.items():
+        workflow.add_node(name, _logged(name, node))
 
     # Linear pipeline
     workflow.add_edge(START, "normalize")
     workflow.add_edge("normalize", "pre_filter")
     workflow.add_edge("pre_filter", "load_evidence")
-    workflow.add_edge("load_evidence", "route")
+    workflow.add_edge("load_evidence", "spawn_agent")
+    workflow.add_edge("spawn_agent", "route")
 
     # Route decision: invoke agent or go straight to RCA
     def route_decision(state: GraphState) -> str:
@@ -549,7 +664,7 @@ def build_investigation_graph() -> StateGraph:
         "critique",
         lambda state: state["next_action"],
         {
-            "route": "route",
+            "spawn_agent": "spawn_agent",
             "generate_rca": "generate_rca",
         },
     )
