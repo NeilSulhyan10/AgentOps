@@ -164,12 +164,15 @@ def load_evidence(state: GraphState) -> GraphState:
 
     # Incidents created by the GitHub monitor arrive with their CI/CD evidence
     # attached.  Everything else is read from the fixture files in data/.
+    has_live_evidence = any(str(ev.source).startswith("live_") for ev in investigation.evidence)
     has_github_evidence = any(
         ev.source in ("github_actions", "github_actions_job_logs")
         for ev in investigation.evidence
     )
     if settings.fault_injection == "missing_evidence":
         investigation.evidence.clear()   # demo fault: pretend nothing could be loaded
+    elif has_live_evidence:
+        pass                             # a live lab already attached everything observed; no fixtures
     else:
         if not has_github_evidence:
             investigation.evidence.extend(get_cicd_evidence_from_fixture(investigation.incident))
@@ -680,15 +683,8 @@ def build_investigation_graph() -> StateGraph:
 # ---------------------------------------------------------------------------
 
 def _format_evidence_summary(evidence: list) -> str:
-    if not evidence:
-        return "No evidence collected yet."
-    lines = []
-    for ev in evidence[-10:]:
-        lines.append(
-            f"  - evidence_id={ev.evidence_id} [{ev.agent_type}] "
-            f"{ev.evidence_type}: {ev.description[:200]}"
-        )
-    return "\n".join(lines)
+    from backend.runtime.evidence_view import format_evidence
+    return format_evidence(evidence, limit=12, description_chars=200)
 
 
 def _format_findings_summary(findings: list) -> str:

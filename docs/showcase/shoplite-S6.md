@@ -4,7 +4,7 @@
 
 - Result: Root cause: multi_layer_failure (confidence 0.99, status completed).
 - Decisions made by: `rules`
-- Investigation id: `7203050b-efa3-4d7b-beec-7601b9828dd6`
+- Investigation id: `3abf648a-ee12-4544-a6c9-a4e36b1413f6`
 
 ## Steps that need attention
 

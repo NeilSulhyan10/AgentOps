@@ -1,0 +1,474 @@
+{
+  "rows": [
+    {
+      "engine": "rules",
+      "group": "other-fixtures",
+      "scenario": "incident-001",
+      "expected": "deployment_induced_failure",
+      "got": "kubernetes_oom",
+      "correct": false,
+      "confidence": 0.77,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "observability_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.2,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "other-fixtures",
+      "scenario": "incident-002",
+      "expected": "kubernetes_oom",
+      "got": "kubernetes_oom",
+      "correct": true,
+      "confidence": 0.62,
+      "status": "completed",
+      "agents": [
+        "kubernetes_analyzer",
+        "traffic_analyzer",
+        "cicd_analyzer"
+      ],
+      "flagged_steps": 1,
+      "seconds": 0.2,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "other-fixtures",
+      "scenario": "incident-003",
+      "expected": "dependency_issue",
+      "got": "dependency_issue",
+      "correct": true,
+      "confidence": 0.75,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "dependency_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "other-fixtures",
+      "scenario": "incident-004",
+      "expected": "deployment_induced_failure",
+      "got": "configuration_error",
+      "correct": false,
+      "confidence": 0.79,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "kubernetes_analyzer",
+        "observability_analyzer",
+        "config_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.2,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "other-fixtures",
+      "scenario": "incident-005",
+      "expected": "dependency_issue",
+      "got": "dependency_issue",
+      "correct": true,
+      "confidence": 0.88,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "dependency_analyzer",
+        "config_analyzer",
+        "kubernetes_analyzer",
+        "observability_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.2,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "other-fixtures",
+      "scenario": "incident-006",
+      "expected": "kubernetes_oom",
+      "got": "kubernetes_oom",
+      "correct": true,
+      "confidence": 0.52,
+      "status": "max_iterations_reached",
+      "agents": [
+        "kubernetes_analyzer",
+        "observability_analyzer",
+        "cicd_analyzer",
+        "config_analyzer",
+        "dependency_analyzer"
+      ],
+      "flagged_steps": 2,
+      "seconds": 0.2,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "other-fixtures",
+      "scenario": "incident-007",
+      "expected": "configuration_error",
+      "got": "configuration_error",
+      "correct": true,
+      "confidence": 0.77,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "config_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "other-fixtures",
+      "scenario": "incident-008",
+      "expected": "dependency_issue",
+      "got": "dependency_issue",
+      "correct": true,
+      "confidence": 0.78,
+      "status": "completed",
+      "agents": [
+        "cache_analyzer",
+        "dependency_analyzer",
+        "observability_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "shoplite-fixtures",
+      "scenario": "shoplite-S1",
+      "expected": "deployment_induced_failure",
+      "got": "deployment_induced_failure",
+      "correct": true,
+      "confidence": 0.81,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "kubernetes_analyzer",
+        "config_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "shoplite-fixtures",
+      "scenario": "shoplite-S2",
+      "expected": "kubernetes_oom",
+      "got": "kubernetes_oom",
+      "correct": true,
+      "confidence": 0.93,
+      "status": "completed",
+      "agents": [
+        "kubernetes_analyzer",
+        "cicd_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "shoplite-fixtures",
+      "scenario": "shoplite-S3",
+      "expected": "traffic_incident",
+      "got": "traffic_incident",
+      "correct": true,
+      "confidence": 0.88,
+      "status": "completed",
+      "agents": [
+        "observability_analyzer",
+        "kubernetes_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "shoplite-fixtures",
+      "scenario": "shoplite-S4",
+      "expected": "configuration_error",
+      "got": "configuration_error",
+      "correct": true,
+      "confidence": 0.9,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "kubernetes_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "shoplite-fixtures",
+      "scenario": "shoplite-S5",
+      "expected": "dependency_issue",
+      "got": "dependency_issue",
+      "correct": true,
+      "confidence": 0.93,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "dependency_analyzer",
+        "observability_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "shoplite-fixtures",
+      "scenario": "shoplite-S6",
+      "expected": "multi_layer_failure",
+      "got": "multi_layer_failure",
+      "correct": true,
+      "confidence": 0.99,
+      "status": "completed",
+      "agents": [
+        "kubernetes_analyzer",
+        "cicd_analyzer",
+        "observability_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "shoplite-fixtures",
+      "scenario": "shoplite-S7",
+      "expected": "unknown",
+      "got": "unknown",
+      "correct": true,
+      "confidence": 0.3,
+      "status": "completed",
+      "agents": [
+        "cicd_analyzer",
+        "observability_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "live",
+      "scenario": "live:none",
+      "expected": "unknown",
+      "got": "unknown",
+      "correct": true,
+      "confidence": 0.3,
+      "status": "completed",
+      "agents": [
+        "observability_analyzer",
+        "cicd_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "live",
+      "scenario": "live:oom",
+      "expected": "kubernetes_oom",
+      "got": "kubernetes_oom",
+      "correct": true,
+      "confidence": 0.91,
+      "status": "completed",
+      "agents": [
+        "observability_analyzer",
+        "kubernetes_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "live",
+      "scenario": "live:latency",
+      "expected": "traffic_incident",
+      "got": "traffic_incident",
+      "correct": true,
+      "confidence": 0.82,
+      "status": "completed",
+      "agents": [
+        "observability_analyzer",
+        "kubernetes_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "live",
+      "scenario": "live:db_down",
+      "expected": "dependency_issue",
+      "got": "dependency_issue",
+      "correct": true,
+      "confidence": 0.93,
+      "status": "completed",
+      "agents": [
+        "observability_analyzer",
+        "dependency_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "live",
+      "scenario": "live:bad_config",
+      "expected": "configuration_error",
+      "got": "configuration_error",
+      "correct": true,
+      "confidence": 0.79,
+      "status": "completed",
+      "agents": [
+        "observability_analyzer",
+        "config_analyzer",
+        "kubernetes_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    },
+    {
+      "engine": "rules",
+      "group": "live-held-out",
+      "scenario": "live:crash",
+      "expected": "application_error",
+      "got": "application_error",
+      "correct": true,
+      "confidence": 0.8,
+      "status": "completed",
+      "agents": [
+        "observability_analyzer",
+        "cicd_analyzer"
+      ],
+      "flagged_steps": 0,
+      "seconds": 0.1,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "llm_seconds": 0.0,
+      "fallbacks": 0
+    }
+  ],
+  "summary": {
+    "rules": {
+      "n": 21,
+      "accuracy": 0.9,
+      "mean_confidence_when_right": 0.77,
+      "mean_confidence_when_wrong": 0.78,
+      "brier": 0.1,
+      "false_alarms": "0/2",
+      "calibration": [
+        {
+          "range": "0.00-0.50",
+          "n": 0,
+          "accuracy": null
+        },
+        {
+          "range": "0.50-0.75",
+          "n": 2,
+          "accuracy": 1.0
+        },
+        {
+          "range": "0.75-0.90",
+          "n": 11,
+          "accuracy": 0.82
+        },
+        {
+          "range": "0.90-1.00",
+          "n": 6,
+          "accuracy": 1.0
+        }
+      ],
+      "mean_seconds": 0.12,
+      "llm_calls": 0,
+      "llm_tokens": 0,
+      "fallbacks": 0
+    }
+  }
+}

@@ -4,7 +4,7 @@
 
 - Result: Root cause: traffic_incident (confidence 0.88, status completed).
 - Decisions made by: `rules`
-- Investigation id: `e6b121ea-6184-4829-811e-a76ab8ab111f`
+- Investigation id: `cc7df734-34f9-42ef-874a-fa13cef44daf`
 
 ## Steps that need attention
 

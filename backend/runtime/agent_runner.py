@@ -22,6 +22,7 @@ from pydantic import BaseModel, ValidationError
 
 from backend.flow.log import log_flow
 from backend.llm.observe import record_call
+from backend.runtime.evidence_view import format_evidence
 from backend.llm import LLMProvider, LLMRequest, get_llm_provider
 from backend.llm.schemas import AgentAnalysisResponse, RoutingDecisionResponse, RCAResponse, RemediationResponse, CriticResponse
 from backend.models import HypothesisType, EvidenceType, Evidence, Incident, AgentFinding, RootCauseAnalysis, RemediationRecommendation, CriticReview
@@ -117,7 +118,7 @@ Respond with JSON only."""
         """Run the specialist whose Markdown file is `<agent_name>.md` and return its finding."""
         input_data = {
             "incident": {**_incident_brief(incident), "incident_id": incident.incident_id},
-            "evidence": self._format_evidence(evidence),
+            "evidence": self._format_evidence(evidence, focus_agent=agent_name),
             "previous_findings": self._format_findings(previous_findings or []),
         }
         if critic_feedback:
@@ -460,14 +461,9 @@ Respond with JSON only."""
     # ------------------------------------------------------------------
     # Prompt formatting helpers
     # ------------------------------------------------------------------
-    def _format_evidence(self, evidence: List[Evidence], limit: int = 40) -> str:
-        if not evidence:
-            return "No evidence collected yet."
-        lines = []
-        for ev in evidence[-limit:]:
-            lines.append(f"  - evidence_id={ev.evidence_id} [{ev.agent_type}] {ev.evidence_type}: {ev.description[:300]}")
-        return "\n".join(lines)
-    
+    def _format_evidence(self, evidence: List[Evidence], limit: int = 40, focus_agent: Optional[str] = None) -> str:
+        return format_evidence(evidence, limit, focus_agent)
+
     def _format_findings(self, findings: List[AgentFinding]) -> str:
         if not findings:
             return "No agent findings yet."

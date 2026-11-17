@@ -4,7 +4,7 @@
 
 - Result: Root cause: dependency_issue (confidence 0.78, status completed).
 - Decisions made by: `rules`
-- Investigation id: `b9a59892-ece5-4bb2-8ee8-0d7b52f5d08b`
+- Investigation id: `178372f1-9997-4ba3-b13b-94baf61d3711`
 
 ## Steps that need attention
 

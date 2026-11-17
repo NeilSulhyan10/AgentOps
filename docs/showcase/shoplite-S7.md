@@ -4,7 +4,7 @@
 
 - Result: Root cause: unknown (confidence 0.30, status completed).
 - Decisions made by: `rules`
-- Investigation id: `03b438f2-b7f9-4099-99a7-25517be67b1e`
+- Investigation id: `e848dd38-c679-441a-b107-ea5566e360a4`
 
 ## Steps that need attention
 

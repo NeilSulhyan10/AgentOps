@@ -18,10 +18,11 @@ That is all that is needed for `scripts/investigate.py`, the flow reports, and t
 | Tool | Version used | Needed for | Install |
 |---|---|---|---|
 | A web browser with internet | any current | the diagrams in the `.html` reports (Mermaid 10.9.1 is loaded from the jsDelivr CDN) | n/a |
+| ShopLite checkout | `../ShopLite` (or `SHOPLITE_DIR`), plus `prometheus-client` 0.20 (in `backend/requirements.txt`) | the live lab (`investigate.py live`, `evaluate.py --live`) | clone next to this repo; Linux only |
 | Docker + Compose | 29.9.2 | the full stack (MongoDB, backend, frontend) | system package |
 | MongoDB 7 | via Docker `mongo:7.0` | server mode and the opt-in database test | `docker compose up -d mongodb` |
 | Node.js + npm | 22.22.2 | the React dashboard (`frontend/`) | system package, then `cd frontend && npm install && npm run dev` |
-| Langfuse (self-hosted) | `langfuse/langfuse:2`, Python package `langfuse` 2.60 | seeing every prompt and answer in a UI (the flow log already records them) | `docker compose -f docker-compose.yml -f docker-compose.langfuse.yml up -d`, then keys in `.env` |
+| Langfuse (cloud or self-hosted v3) | Python package `langfuse` 5.2.0 (OpenTelemetry-based; 2.x no longer works with Langfuse Cloud since 2026-11-16) | seeing every prompt and answer in a UI (the flow log already records them) | keys from your Langfuse project in `.env`, plus `LANGFUSE_HOST` for your region |
 | Nemotron API key | n/a | `--llm` mode | NVIDIA API catalogue; put in `.env` |
 | GitHub token | n/a | the GitHub Actions monitor | GitHub settings; put in `.env` |
 
@@ -57,7 +58,7 @@ Result: 30 diagrams checked (README and `docs/showcase/`), 0 invalid. This is no
 ## Verify the installation
 
 ```bash
-.venv/bin/python -m pytest -q                         # 138 passed, 1 skipped
+.venv/bin/python -m pytest -q                         # 143 passed, 1 skipped
 .venv/bin/python scripts/investigate.py run shoplite-S2
 .venv/bin/python scripts/investigate.py showcase      # rebuilds docs/showcase/
 ```

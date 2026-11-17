@@ -9,6 +9,7 @@ you pass --llm, every decision is made by the rule-based implementations.
   python scripts/investigate.py run all                    investigate every scenario
   python scripts/investigate.py run shoplite-S2 --fault agent_crash
   python scripts/investigate.py run shoplite-S2 --llm      use the LLM configured in .env
+  python scripts/investigate.py live oom                   break a REAL ShopLite (oom|latency|db_down|bad_config|crash|none) and investigate it
   python scripts/investigate.py showcase                   rebuild docs/showcase (ready-made examples)
   python scripts/investigate.py report --last              report for the latest run in logs/flow.jsonl
   python scripts/investigate.py report <investigation_id>  (works for runs made by the server too)
@@ -67,8 +68,8 @@ def write_reports(trace: FlowTrace, out_dir: Path, name: str) -> Path:
     return html_path
 
 
-def verdict(trace: FlowTrace, scenario_id: str) -> str:
-    expected = expected_root_cause(scenario_id)
+def verdict(trace: FlowTrace, scenario_id: str, expected: Optional[str] = None) -> str:
+    expected = expected or expected_root_cause(scenario_id)
     if not expected or trace.final_status == "failed":
         return ""
     got = trace.root_cause_type or "unknown"
@@ -87,6 +88,27 @@ async def cmd_run(args) -> int:
         print(to_text(trace))
         if verdict(trace, scenario_id):
             print(f"  Ground truth: {verdict(trace, scenario_id)}")
+        print(f"  Report: {html_path}\n")
+    return 0
+
+
+async def cmd_live(args) -> int:
+    """Break a real ShopLite, observe it, and investigate what was observed."""
+    from backend.live.shoplite import EXPECTED, run_lab
+    faults = list(EXPECTED) if args.fault_name == "all" else [args.fault_name]
+    for fault in faults:
+        print(f"Breaking a real ShopLite with FAULT={fault} and observing it ...", flush=True)
+        lab = await run_lab(fault)
+        print(f"  observed: {lab.summary}")
+        settings.fault_injection = ""
+        reset_llm_provider()
+        state = create_initial_state(lab.incident, settings.max_iterations)
+        state.evidence = lab.evidence
+        final = await run_investigation(state)
+        trace = build_trace(read_events(final.investigation_id))
+        html_path = write_reports(trace, Path(args.out), f"live-{fault}")
+        print(to_text(trace))
+        print(f"  Ground truth: {verdict(trace, '', lab.expected_root_cause)}")
         print(f"  Report: {html_path}\n")
     return 0
 
@@ -181,6 +203,10 @@ def main() -> int:
     run.add_argument("--llm", action="store_true", help="use the LLM provider from .env instead of rules")
     run.add_argument("--out", default="reports", help="directory for the reports (default: reports)")
 
+    live = commands.add_parser("live", help="break a real ShopLite and investigate it")
+    live.add_argument("fault_name", choices=["all", "none", "oom", "latency", "db_down", "bad_config", "crash"])
+    live.add_argument("--out", default="reports")
+
     showcase = commands.add_parser("showcase", help="rebuild the ready-made examples")
     showcase.add_argument("--out", default="docs/showcase")
 
@@ -203,6 +229,8 @@ def main() -> int:
 
     if args.command == "run":
         return asyncio.run(cmd_run(args))
+    if args.command == "live":
+        return asyncio.run(cmd_live(args))
     if args.command == "showcase":
         return asyncio.run(cmd_showcase(args))
     handlers = {"list": cmd_list, "faults": cmd_faults, "report": cmd_report}

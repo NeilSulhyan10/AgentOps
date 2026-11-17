@@ -18,15 +18,16 @@ Team: Neil Sulhyan, Huma Naaz Mohammad, Dhriti Shah
 6. [Dynamic agent spawning](#dynamic-agent-spawning)
 7. [Reading a flow report](#reading-a-flow-report)
 8. [The dashboard](#the-dashboard)
-9. [Showcase: errors ready to demo](#showcase-errors-ready-to-demo)
-10. [Project layout](#project-layout)
-11. [Modes: rules, LLM, server](#modes-rules-llm-server)
-12. [Configuration](#configuration)
-13. [HTTP API](#http-api)
-14. [Extending AgentOps](#extending-agentops)
-15. [Testing](#testing)
-16. [Known limitations](#known-limitations)
-17. [Related documents](#related-documents)
+9. [Live lab and evaluation](#live-lab-and-evaluation)
+10. [Showcase: errors ready to demo](#showcase-errors-ready-to-demo)
+11. [Project layout](#project-layout)
+12. [Modes: rules, LLM, server](#modes-rules-llm-server)
+13. [Configuration](#configuration)
+14. [HTTP API](#http-api)
+15. [Extending AgentOps](#extending-agentops)
+16. [Testing](#testing)
+17. [Known limitations](#known-limitations)
+18. [Related documents](#related-documents)
 
 ---
 
@@ -191,7 +192,7 @@ Because an LLM's self-reported confidence goes through the same formula, a model
 In LLM mode every real call is recorded with the **prompt sent**, the **raw answer received**, tokens and time:
 
 - **Always, in the flow log.** It appears as an `llm_call` event and in the Flow tab, inside the step that made the call (an **LLM call** section; a failed call opens by itself). When an answer was unusable and the step went amber, you can read exactly what the model said. Rules mode makes no calls, so there is nothing to show.
-- **Optionally, in Langfuse.** Set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` and each investigation becomes one trace with one generation per call (session id = investigation id), with token and latency views and prompt comparison. Prompts contain your incident logs, so self-host it: `docker compose -f docker-compose.yml -f docker-compose.langfuse.yml up -d`, open http://localhost:3001, create a project, put its keys in `.env`. Langfuse is not required and failures in it never affect an investigation.
+- **Optionally, in Langfuse.** Set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_HOST` and each investigation becomes one trace (session id = investigation id) with one generation per call, with token and latency views and prompt comparison. `LANGFUSE_HOST` is `https://cloud.langfuse.com` (EU cloud), `https://us.cloud.langfuse.com` (US cloud) or your own server; a key from one region is rejected by the other. This uses the OpenTelemetry-based Python SDK (`langfuse` 5.x): Langfuse Cloud stopped accepting the older SDK's ingestion API on 2026-11-16, so the 2.x SDK silently loses every trace. Prompts contain your incident logs, so choose cloud or self-hosting deliberately; self-hosting now needs Langfuse v3 (see Langfuse's own docker-compose). Failures in Langfuse never affect an investigation.
 
 Langfuse shows the LLM calls; the flow report shows what the investigation made of them (grounded evidence, fallbacks, the layer at fault). They complement each other.
 
@@ -283,6 +284,42 @@ The **Agents** page lists every specialist, the kinds of agent the spawner can c
 
 ---
 
+## Live lab and evaluation
+
+The scenarios in `data/` are written by hand, and the rules were tuned on them, so passing them proves little. Two tools check the investigator against data nobody wrote for it.
+
+**Live ShopLite lab** (`backend/live/shoplite.py`). It starts a real [ShopLite](../ShopLite) process with one fault injected and watches it the way production would:
+
+| Piece | What it does |
+|---|---|
+| supervisor | acts like a kubelet: restarts the process when it exits (with a restart count and back-off), kills it when its memory passes the limit (exit 137, `OOMKilling`), and checks `/health` for readiness |
+| prober | sends real HTTP traffic and records the status and latency of every request |
+| logs | ShopLite's own JSON log lines and the exceptions it prints |
+| deploy diff | what changed compared with a healthy deployment: the `FAULT` variable, the memory limit, the missing secret |
+
+The incident text is made from the symptoms only (error rate, latency, restarts), and a test checks it never names the fault. The investigator has to work the cause out. `crash` is **held out**: no fixture and no rule was written for it.
+
+```bash
+python scripts/investigate.py live oom        # break a real ShopLite, investigate, write reports/live-oom.html
+python scripts/investigate.py live all
+```
+
+It needs a ShopLite checkout (`SHOPLITE_DIR`, default `../ShopLite`) and Linux (it reads `/proc` for memory).
+
+**Evaluation** (`scripts/evaluate.py`). It runs every scenario with each engine on *identical* evidence and reports accuracy by group, whether confidence means anything (accuracy per confidence band, Brier score, false alarms on healthy runs), and cost (seconds, LLM calls, tokens).
+
+```bash
+python scripts/evaluate.py --live             # rules on the fixtures and the live lab -> docs/eval/latest.md
+python scripts/evaluate.py --live --llm       # ... and the LLM from .env on the same evidence
+```
+
+Latest results are in [`docs/eval/`](docs/eval/latest.md). What the first run found:
+
+- Rules mode gets 19 of 21 (all 7 ShopLite fixtures, 5 of 5 live runs, and the held-out `crash`). The two misses are `incident-001` and `incident-004`, where the data labels a deployment as the cause and the rules name the mechanism it triggered.
+- The first live run found a real flaw the fixtures never showed: on a healthy ShopLite that had just been redeployed, the rules reported `deployment_induced_failure` (a false alarm). A release with no symptoms anywhere is no longer a diagnosis (see [How the root cause is decided](#how-the-root-cause-is-decided)).
+- Confidence does not yet separate right from wrong answers (mean 0.77 when right, 0.78 when wrong), because the two misses are label disagreements rather than weak evidence. The weights need more data than 21 scenarios to calibrate.
+
+
 ## Showcase: errors ready to demo
 
 [`docs/showcase/`](docs/showcase/README.md) contains 14 pre-built reports. Rebuild them with `python scripts/investigate.py showcase`. There are two kinds of error.
@@ -353,6 +390,7 @@ backend/
     state.py                 persists investigations to MongoDB
   runtime/
     agent_loader.py          finds agents: every .md file in agents/markdown/
+    evidence_view.py         which evidence goes into a prompt (balanced across layers, says what was left out)
     agent_spec.py            an agent's front-matter: layer, hypothesis, keywords (rules without Python)
     spawner.py               creates specialists at run time (FOCUS_CATALOG)
     agent_runner.py          runs one agent step: prompt -> LLM -> validate, else rules
@@ -366,10 +404,11 @@ backend/
     log.py  trace.py  layers.py  diagram.py  report.py  export.py (JSON for the dashboard)
   services/                  investigation_service (API), github_monitor, scenarios
   data_sources/github_actions/   GitHub Actions client + adapter
-  tools/data_access.py       reads evidence fixtures from data/
+  tools/data_access.py       reads evidence fixtures from data/, and turns evidence dicts into Evidence
+  live/shoplite.py           the live lab: a real broken ShopLite -> incident + evidence
   api/                       REST routes + WebSocket
 data/                        replayable scenarios: incidents, cicd, kubernetes, observability, ground_truth
-scripts/                     investigate.py (main tool), clear_investigations.py (empty the database; dry run unless --yes), analyze_flow.py, trigger_incident.py, generate_scenarios.py
+scripts/                     investigate.py (main tool), evaluate.py (accuracy and calibration, rules vs LLM), clear_investigations.py (empty the database; dry run unless --yes), analyze_flow.py, trigger_incident.py, generate_scenarios.py
 frontend/                    React dashboard (src/components/flow = the Flow tab, src/pages/Agents.tsx)
 evaluation/                  baseline-vs-adaptive experiments
 docs/                        SETUP.md, CRITIC_REPORT.md, showcase/
@@ -419,7 +458,7 @@ Set as environment variables or in `.env`. Defaults work on a fresh clone with n
 | `NEMOTRON_API_KEY`, `NEMOTRON_API_URL`, `NEMOTRON_MODEL` | none | LLM access |
 | `CONFIDENCE_THRESHOLD` | `0.75` | confidence at which an investigation stops asking specialists |
 | `MAX_ITERATIONS` | `5` | maximum specialist runs per investigation |
-| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | empty | optional: send every LLM call to Langfuse |
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | empty / empty / `http://localhost:3001` | optional: send every LLM call to Langfuse; set the host to `https://cloud.langfuse.com` (EU) or `https://us.cloud.langfuse.com` (US) for the cloud |
 | `ENABLE_CRITIC` / `CRITIC_MAX_ROUNDS` | `true` / `3` | the critic and how often it may send a run back |
 | `FAULT_INJECTION` | empty | one of the fault names above |
 | `FLOW_LOG_ENABLED` / `FLOW_LOG_PATH` | `true` / `<repo>/logs/flow.jsonl` | the flow log |
@@ -500,7 +539,8 @@ Point it at a throwaway database: it creates and deletes records.
 
 - **Rule-based specialists are keyword rules, not a diagnosis engine.** They match all seven ShopLite scenarios and `incident-008`, and 13 of the 15 scenarios overall. The misses are `incident-001` and `incident-004`, where the data labels a deployment as the cause while the rules, by design, name the mechanism the deployment triggered (an OOM, a missing setting). Anything outside the patterns in `backend/agents/*/agent.py` needs the LLM.
 - **The confidence weights are reasoned, not fitted.** The numbers in [How confidence is computed](#how-confidence-is-computed) are sensible defaults, not calibrated against real incident outcomes; tune them with the evaluation runs once you have them.
-- **Evidence given to the LLM is truncated to the last 40 items**, and CI/CD evidence is loaded first, so on big incidents it can be cut. Open issue, see the critic report.
+- **Prompts show at most 40 evidence items** (12 for the router). The selection is balanced across layers and the prompt says what was left out, but a very large incident is still only partly visible to the LLM.
+- **Live evidence comes from one application.** The lab covers ShopLite only; a second app needs its own collector.
 - Several smaller open items (for example `InvestigationStatus.INSUFFICIENT_EVIDENCE` is never set, `current_hypothesis` is not updated after the first guess) are listed with their status in the critic report.
 
 ---

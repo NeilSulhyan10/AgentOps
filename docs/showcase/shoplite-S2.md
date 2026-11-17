@@ -4,7 +4,7 @@
 
 - Result: Root cause: kubernetes_oom (confidence 0.93, status completed).
 - Decisions made by: `rules`
-- Investigation id: `86af73ae-a674-489d-b96e-fb70d6d2cc1d`
+- Investigation id: `37304910-c446-4520-9fe0-f1e52529c5ed`
 
 ## Steps that need attention
 

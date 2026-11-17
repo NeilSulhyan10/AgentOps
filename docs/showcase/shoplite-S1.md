@@ -4,7 +4,7 @@
 
 - Result: Root cause: deployment_induced_failure (confidence 0.81, status completed).
 - Decisions made by: `rules`
-- Investigation id: `fbdbace3-3e93-4166-9227-ce940ef8b2e6`
+- Investigation id: `ff82c550-9bce-45dd-990a-b9da3c2cb39a`
 
 ## Steps that need attention
 

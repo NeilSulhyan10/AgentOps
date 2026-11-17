@@ -4,7 +4,7 @@
 
 - Result: Investigation FAILED at node 'invoke_agent'.
 - Decisions made by: `rules+fault:agent_crash`
-- Investigation id: `27340da4-303a-48d8-a5f7-59577c79bb8c`
+- Investigation id: `8a53bb6e-2bb9-4601-b35a-493706728621`
 - Injected fault (demo): `agent_crash`
 
 ## Steps that need attention

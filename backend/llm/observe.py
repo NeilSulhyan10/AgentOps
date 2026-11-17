@@ -6,10 +6,12 @@ Two destinations, both fed from the one place that calls the LLM (``_ask_llm``):
 1. The flow log (always): an ``llm_call`` event with the prompt and the raw
    answer (truncated).  The dashboard's Flow tab shows it inside the step that
    made the call, which is how you see *why* an answer was unusable.
-2. Langfuse (optional): set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY (and
-   LANGFUSE_HOST for a self-hosted server).  One Langfuse trace per
-   investigation, one generation per LLM call.  Prompts contain incident logs,
-   so self-host it (docker-compose.langfuse.yml).
+2. Langfuse (optional): set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY, and
+   LANGFUSE_HOST (https://cloud.langfuse.com for the EU cloud, https://us.cloud.langfuse.com
+   for the US cloud, or your own server).  One Langfuse trace per investigation,
+   one generation per LLM call.  Uses the OpenTelemetry-based SDK (4.x and later):
+   Langfuse Cloud stopped accepting the older SDK's ingestion API on 2026-11-16.
+   Prompts contain incident logs, so decide deliberately between cloud and self-hosting.
 
 Calls made in rules mode are skipped by the provider and are not recorded:
 there is no prompt to show.  Nothing here may ever break an investigation.
@@ -46,6 +48,24 @@ def _langfuse():
     return _client
 
 
+def _send_to_langfuse(client, investigation_id: str, task: str, agent: str, request: LLMRequest,
+                      response: LLMResponse, duration_ms: int) -> None:
+    """One generation per call, all calls of an investigation in one trace and one session."""
+    from langfuse import propagate_attributes
+
+    trace_id = client.create_trace_id(seed=investigation_id)      # same investigation -> same trace
+    with propagate_attributes(session_id=investigation_id, trace_name="investigation", tags=["agentops"]):
+        generation = client.start_observation(
+            trace_context={"trace_id": trace_id}, name=f"{task}{':' + agent if agent else ''}", as_type="generation",
+            model=response.model or None,
+            input=[{"role": "system", "content": request.system_prompt or ""}, {"role": "user", "content": request.prompt}],
+            output=response.content, metadata={"task": task, "agent": agent, "duration_ms": duration_ms},
+            usage_details={"total": response.tokens_used} if response.tokens_used else None,
+            level="ERROR" if response.error else "DEFAULT", status_message=response.error,
+        )
+        generation.end()
+
+
 def _cut(text: Optional[str], limit: int) -> str:
     text = text or ""
     return text if len(text) <= limit else text[:limit] + f"… [{len(text) - limit} more characters]"
@@ -66,14 +86,7 @@ def record_call(investigation_id: str, task: str, agent: str, request: LLMReques
         )
         client = _langfuse()
         if client and investigation_id:
-            trace = client.trace(id=investigation_id, name="investigation", session_id=investigation_id)
-            trace.generation(
-                name=f"{task}{':' + agent if agent else ''}", model=response.model or None,
-                input=[{"role": "system", "content": request.system_prompt or ""}, {"role": "user", "content": request.prompt}],
-                output=response.content, metadata={"task": task, "agent": agent},
-                usage={"total": response.tokens_used} if response.tokens_used else None,
-                level="ERROR" if response.error else "DEFAULT", status_message=response.error,
-            )
+            _send_to_langfuse(client, investigation_id, task, agent, request, response, duration_ms)
     except Exception as exc:
         logger.warning("Could not record LLM call: %s", exc)
 

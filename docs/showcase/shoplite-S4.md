@@ -4,7 +4,7 @@
 
 - Result: Root cause: configuration_error (confidence 0.90, status completed).
 - Decisions made by: `rules`
-- Investigation id: `04b110dc-3e02-45f0-81b2-6b88b1cd7252`
+- Investigation id: `71c9a37b-cee4-4c80-bf07-c90b3ca07708`
 
 ## Steps that need attention
 

@@ -155,19 +155,22 @@ def test_langfuse_gets_one_trace_per_investigation_and_never_breaks_a_run(monkey
 
     sent = []
 
-    class Trace:
-        def generation(self, **kw): sent.append(kw)
+    class Generation:
+        def end(self): sent.append("ended")
 
     class Client:
-        def trace(self, **kw): sent.append(("trace", kw)); return Trace()
+        def create_trace_id(self, seed=None): return f"trace-of-{seed}"
+        def start_observation(self, **kw): sent.append(kw); return Generation()
 
     monkeypatch.setattr(observe, "_langfuse", lambda: Client())
-    observe.record_call("inv-1", "routing", "", LLMRequest(prompt="p", system_prompt="s"), LLMResponse(content="c", model="m"), 5)
-    assert sent[0] == ("trace", {"id": "inv-1", "name": "investigation", "session_id": "inv-1"})
-    assert sent[1]["name"] == "routing" and sent[1]["output"] == "c"
+    observe.record_call("inv-1", "routing", "", LLMRequest(prompt="p", system_prompt="s"), LLMResponse(content="c", model="m", tokens_used=4), 5)
+    call = sent[0]
+    assert call["trace_context"] == {"trace_id": "trace-of-inv-1"}            # same investigation, same trace
+    assert call["as_type"] == "generation" and call["name"] == "routing" and call["output"] == "c"
+    assert call["usage_details"] == {"total": 4} and sent[1] == "ended"
 
     class Broken:
-        def trace(self, **kw): raise RuntimeError("langfuse is down")
+        def create_trace_id(self, seed=None): raise RuntimeError("langfuse is down")
 
     monkeypatch.setattr(observe, "_langfuse", lambda: Broken())
     observe.record_call("inv-1", "routing", "", LLMRequest(prompt="p"), LLMResponse(content="c"), 5)   # must not raise
@@ -325,3 +328,91 @@ def test_nothing_found_stays_low_even_with_lots_of_evidence():
     evidence = [_ev(f"e{i}", 0.9) for i in range(6)]
     b = score_investigation([_f("a", H.UNKNOWN, 0.3, ["e0", "e1", "e2"]), _f("b", H.UNKNOWN, 0.3, ["e3", "e4", "e5"])], evidence)
     assert b.hypothesis == "unknown" and b.overall == 0.3 and b.corroboration == 0.0
+
+
+# ---- evidence selection for prompts ---------------------------------------------
+
+def test_evidence_selection_keeps_every_layer_and_says_what_was_left_out():
+    from backend.models import Evidence, EvidenceType
+    from backend.runtime.evidence_view import format_evidence, select_evidence
+
+    def ev(i, agent, kind, conf):
+        return Evidence(evidence_id=i, investigation_id="i", agent_type=agent, evidence_type=kind,
+                        description=f"item {i}", raw_data={}, confidence=conf, source="t")
+
+    # 6 CI/CD items loaded first, then 60 log lines: "the last 40" would drop all of CI/CD.
+    items = [ev(f"c{i}", "cicd_analyzer", EvidenceType.CONFIG_CHANGE, 0.8) for i in range(6)]
+    items += [ev(f"l{i}", "observability_analyzer", EvidenceType.LOG, 0.5) for i in range(60)]
+    items.append(ev("lat", "observability_analyzer", EvidenceType.LATENCY, 0.9))
+
+    shown = select_evidence(items, 20)
+    assert len(shown) == 20 and any(e.agent_type == "cicd_analyzer" for e in shown)
+    assert any(e.evidence_type == EvidenceType.LATENCY for e in shown)            # the strongest of each type survives
+    assert [e.evidence_id for e in shown] == [e.evidence_id for e in items if e in shown]   # original order kept
+
+    focused = select_evidence(items, 20, focus_agent="cicd_analyzer")
+    assert sum(e.agent_type == "cicd_analyzer" for e in focused) == 6             # own layer first (it has only 6)
+    text = format_evidence(items, limit=20)
+    assert "more items not shown" in text and "log" in text
+    assert "not shown" not in format_evidence(items[:5], limit=20)
+
+
+def test_a_release_alone_is_not_a_failure():
+    findings = [finding("cicd_analyzer", H.DEPLOYMENT_INDUCED_FAILURE, 0.6),
+                finding("kubernetes_analyzer", H.UNKNOWN, 0.3), finding("observability_analyzer", H.UNKNOWN, 0.3)]
+    assert decide_root_cause(findings)[0] == H.UNKNOWN
+    assert found_nothing(findings)
+    # ... but a strong deployment finding, or a weak one with nothing to contradict it, still counts
+    assert decide_root_cause([finding("cicd_analyzer", H.DEPLOYMENT_INDUCED_FAILURE, 0.9)])[0] == H.DEPLOYMENT_INDUCED_FAILURE
+    assert decide_root_cause([finding("cicd_analyzer", H.DEPLOYMENT_INDUCED_FAILURE, 0.6)])[0] == H.DEPLOYMENT_INDUCED_FAILURE
+
+
+# ---- live lab and evaluation ----------------------------------------------------
+
+def test_live_incident_text_never_names_the_injected_fault():
+    from backend.live.shoplite import EXPECTED, _Probe, _Supervisor, describe
+
+    for fault in EXPECTED:
+        sup = _Supervisor(fault, 128, 0)
+        sup.restarts, sup.ever_ready = (3, False) if fault == "bad_config" else (1 if fault == "oom" else 0, True)
+        probes = [_Probe("/health", 503 if fault == "db_down" else 200, 20.0, 0.0)] * 5
+        obs = {"error_rate": {"rate": 100.0 if fault != "none" else 0.0}, "latency": {"p99": 20}}
+        title, description = describe(probes, sup, obs)
+        text = f"{title} {description}".lower()
+        for word in (fault, fault.replace("_", " "), "oom", "leak", "injected", "fault"):
+            if word not in ("none", "latency"):          # "latency" is also an ordinary symptom word
+                assert word not in text, f"{fault}: incident text leaks '{word}'"
+
+
+@pytest.mark.skipif(not (__import__("backend.live.shoplite", fromlist=["SHOPLITE_DIR"]).SHOPLITE_DIR / "app" / "main.py").exists(),
+                    reason="ShopLite checkout not found (set SHOPLITE_DIR)")
+async def test_live_lab_runs_a_real_broken_shoplite_and_the_investigator_diagnoses_it():
+    from backend.live.shoplite import run_lab
+
+    lab = await run_lab("bad_config")              # the real process refuses to start: a real restart loop
+    assert lab.summary["restarts"] >= 1 and lab.summary["last_exit"] not in (None, 0)
+    assert any("REQUIRED_SECRET" in e.description for e in lab.evidence)
+    assert all(e.source == "live_shoplite" for e in lab.evidence)
+
+    state = create_initial_state(lab.incident, settings.max_iterations)
+    state.evidence = lab.evidence
+    final = await run_investigation(state)
+    assert final.root_cause.root_cause_type == "configuration_error"
+    assert not [e for e in final.evidence if str(e.source) != "live_shoplite"]      # no fixture evidence mixed in
+
+
+def test_evaluation_statistics():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("evaluate", Path(__file__).resolve().parent.parent / "scripts" / "evaluate.py")
+    ev = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ev)
+
+    def row(expected, got, conf):
+        return {"expected": expected, "got": got, "correct": expected == got, "confidence": conf, "seconds": 1.0,
+                "llm_calls": 2, "llm_tokens": 10, "fallbacks": 0}
+
+    s = ev.summarize([row("kubernetes_oom", "kubernetes_oom", 0.9), row("kubernetes_oom", "unknown", 0.8),
+                      row("dependency_issue", "dependency_issue", 0.6), row("unknown", "unknown", 0.3), row("unknown", "kubernetes_oom", 0.8)])
+    assert s["accuracy"] == 0.6 and s["false_alarms"] == "1/2"
+    assert s["brier"] == round(((0.9 - 1) ** 2 + (0.8 - 0) ** 2 + (0.6 - 1) ** 2) / 3, 2)      # healthy rows are not in Brier
+    assert [b["n"] for b in s["calibration"]] == [0, 1, 1, 1]

@@ -4,7 +4,7 @@
 
 - Result: Root cause: kubernetes_oom (confidence 0.74, status completed).
 - Decisions made by: `rules+fault:critic_always_challenges`
-- Investigation id: `e7a188c5-9c0c-47b0-a6fb-c97ab88062e5`
+- Investigation id: `435e227e-759b-43f0-b756-ea3a535feab0`
 - Injected fault (demo): `critic_always_challenges`
 
 ## Steps that need attention

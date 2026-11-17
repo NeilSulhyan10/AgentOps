@@ -42,7 +42,7 @@
   <h1>shoplite-S2</h1>
   <div>ShopLite pods OOMKilled repeatedly — memory limit 128Mi exceeded</div>
   <div class="verdict error">Investigation FAILED at node &#x27;invoke_agent&#x27;.</div>
-  <div class="meta"><span>decisions made by: <b>rules+fault:agent_crash</b></span><span>injected fault: <b>agent_crash</b></span><span>investigation 27340da4-303a-48d8-a5f7-59577c79bb8c</span></div>
+  <div class="meta"><span>decisions made by: <b>rules+fault:agent_crash</b></span><span>injected fault: <b>agent_crash</b></span><span>investigation 8a53bb6e-2bb9-4601-b35a-493706728621</span></div>
 
   <h2>Steps that need attention</h2>
   <div class="problem error"><b>✖ invoke_agent</b> - invoke_agent (kubernetes_analyzer) FAILED<ul><li>RuntimeError: LLM provider timed out after 60s (injected fault: agent_crash)</li></ul></div>
@@ -101,7 +101,7 @@
   <div class="table-wrap">
   <table>
     <thead><tr><th>#</th><th></th><th>Node</th><th>What happened</th><th>Details</th><th>ms</th></tr></thead>
-    <tbody><tr class="ok"><td>1</td><td>✔</td><td><code>normalize</code></td><td>Start investigation</td><td>Incident shoplite-S2: ShopLite pods OOMKilled repeatedly — memory limit 128Mi exceeded<br>Decisions made by: rules+fault:agent_crash<br>Injected fault for this demo run: agent_crash</td><td></td></tr><tr class="ok"><td>2</td><td>✔</td><td><code>pre_filter</code></td><td>Keyword pre-filter</td><td>First guess: kubernetes_oom<br>Wants to know about: deployment_details, pod_memory_status, pod_restart_pattern</td><td></td></tr><tr class="ok"><td>3</td><td>✔</td><td><code>load_evidence</code></td><td>Load evidence (22 items)</td><td>Sources: cicd_fixture, kubernetes_fixture, observability_fixture</td><td></td></tr><tr class="ok"><td>4</td><td>✔</td><td><code>route</code></td><td>Route #1 -&gt; kubernetes_analyzer</td><td>Hypothesis &#x27;kubernetes_oom&#x27; maps to kubernetes_analyzer</td><td>0</td></tr><tr class="error"><td>5</td><td>✖</td><td><code>invoke_agent</code></td><td>invoke_agent (kubernetes_analyzer) FAILED</td><td>RuntimeError: LLM provider timed out after 60s (injected fault: agent_crash)</td><td>0</td></tr></tbody>
+    <tbody><tr class="ok"><td>1</td><td>✔</td><td><code>normalize</code></td><td>Start investigation</td><td>Incident shoplite-S2: ShopLite pods OOMKilled repeatedly — memory limit 128Mi exceeded<br>Decisions made by: rules+fault:agent_crash<br>Injected fault for this demo run: agent_crash</td><td></td></tr><tr class="ok"><td>2</td><td>✔</td><td><code>pre_filter</code></td><td>Keyword pre-filter</td><td>First guess: kubernetes_oom<br>Wants to know about: deployment_details, pod_memory_status, pod_restart_pattern</td><td></td></tr><tr class="ok"><td>3</td><td>✔</td><td><code>load_evidence</code></td><td>Load evidence (22 items)</td><td>Sources: cicd_fixture, kubernetes_fixture, observability_fixture</td><td></td></tr><tr class="ok"><td>4</td><td>✔</td><td><code>route</code></td><td>Route #1 -&gt; kubernetes_analyzer</td><td>Hypothesis &#x27;kubernetes_oom&#x27; maps to kubernetes_analyzer</td><td>0</td></tr><tr class="error"><td>5</td><td>✖</td><td><code>invoke_agent</code></td><td>invoke_agent (kubernetes_analyzer) FAILED</td><td>RuntimeError: LLM provider timed out after 60s (injected fault: agent_crash)</td><td>1</td></tr></tbody>
   </table>
   </div>
 </main>

@@ -18,7 +18,7 @@ The rules-mode critic always challenges round 1 ("single layer") and cannot chal
 |---|---|---|---|
 | 1 | bug | `evaluate` set status `completed` before the critic and RCA ran, so "completed with no RCA" was observable and `trigger_incident.py --wait` could stop early | **fixed**: only `generate_rca` sets a finished status |
 | 2 | bug | WebSocket connect crashed: it read `investigation.current_agent`, which does not exist | **fixed** (uses the last invoked agent) |
-| 3 | bug (LLM mode) | Evidence truncation keeps the *last* 40 items (router: last 10); CI/CD evidence is loaded first so it is dropped. On incident-001 all 6 CI/CD items vanish from prompts | open |
+| 3 | bug (LLM mode) | Evidence truncation keeps the *last* 40 items (router: last 10); CI/CD evidence is loaded first so it is dropped. On incident-001 all 6 CI/CD items vanish from prompts | **fixed**: `runtime/evidence_view.py` balances the selection across layers and evidence types (a specialist gets 60% of the budget for its own layer) and tells the model what was left out |
 | 4 | bug | JSON in a ` ```json ` fence was rejected; a failed LLM call became content `"Error: ..."` and the run looked successful | **fixed**: JSON is extracted from fences/prose; provider errors set `LLMResponse.error` and are logged as a fallback |
 | 5 | bug | RCA fallback chose the lead finding by max confidence over *all* findings, including ungrounded ones (e.g. a fake-evidence finding at 0.99 decided the RCA) | **fixed**: only grounded findings are used |
 | 6 | bug | A final `challenged` verdict still ends `completed`; two different confidence numbers; `INSUFFICIENT_EVIDENCE` is never set | open (visible in reports as an amber `critique`) |

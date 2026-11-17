@@ -151,8 +151,12 @@ async def get_cicd_evidence_from_github(incident: Incident) -> List["Evidence"]:
 
 
 def get_cicd_evidence_from_fixture(incident: Incident) -> List["Evidence"]:
-    """Load CI/CD evidence from local fixture files."""
-    data = data_loader.load_cicd_data(incident.incident_id)
+    """Evidence for a scenario, from its fixture file in data/cicd/."""
+    return cicd_evidence_from_data(data_loader.load_cicd_data(incident.incident_id))
+
+
+def cicd_evidence_from_data(data: dict) -> List["Evidence"]:
+    """Turn a cicd data dict (fixture layout) into Evidence. Used for fixtures and for the live lab."""
     evidence = []
     
     if data.get("deployments"):
@@ -207,7 +211,12 @@ def get_cicd_evidence_from_fixture(incident: Incident) -> List["Evidence"]:
 
 
 def get_kubernetes_evidence(incident: Incident) -> List[Evidence]:
-    data = data_loader.load_kubernetes_data(incident.incident_id)
+    """Evidence for a scenario, from its fixture file in data/kubernetes/."""
+    return kubernetes_evidence_from_data(data_loader.load_kubernetes_data(incident.incident_id))
+
+
+def kubernetes_evidence_from_data(data: dict) -> List[Evidence]:
+    """Turn a kubernetes data dict (fixture layout) into Evidence. Used for fixtures and for the live lab."""
     evidence = []
 
     if data.get("pods"):
@@ -272,7 +281,12 @@ def get_kubernetes_evidence(incident: Incident) -> List[Evidence]:
 
 
 def get_observability_evidence(incident: Incident) -> List[Evidence]:
-    data = data_loader.load_observability_data(incident.incident_id)
+    """Evidence for a scenario, from its fixture file in data/observability/."""
+    return observability_evidence_from_data(data_loader.load_observability_data(incident.incident_id))
+
+
+def observability_evidence_from_data(data: dict) -> List[Evidence]:
+    """Turn a observability data dict (fixture layout) into Evidence. Used for fixtures and for the live lab."""
     evidence = []
 
     if data.get("latency"):

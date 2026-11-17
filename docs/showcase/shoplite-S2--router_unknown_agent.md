@@ -4,7 +4,7 @@
 
 - Result: Root cause: kubernetes_oom (confidence 0.93, status completed).
 - Decisions made by: `rules+fault:router_unknown_agent`
-- Investigation id: `6d17be68-655b-4294-b279-3140ec200bd7`
+- Investigation id: `3472d60c-84df-4200-9e5c-70875514c458`
 - Injected fault (demo): `router_unknown_agent`
 
 ## Steps that need attention

@@ -18,7 +18,9 @@ Rules, in order (only findings with confidence >= STRONG count):
    ``multi_layer_failure`` (one change broke several layers at once).
 2. Otherwise the most confident mechanism wins.
 3. If no mechanism, the most confident trigger/symptom wins.
-4. If every specialist reports "unknown", the answer is ``unknown``: the
+4. A weak deployment finding ("a release shipped") next to a healthy layer counts as "unknown":
+   a release alone is not a failure.
+5. If every specialist reports "unknown", the answer is ``unknown``: the
    service looks healthy and we do not invent a cause.
 """
 
@@ -47,6 +49,9 @@ def decide_root_cause(findings: List[AgentFinding]) -> Tuple[HypothesisType, str
     if not strong:
         # Nothing confident.  A weak finding may still be the best lead; all-unknown means "nothing wrong".
         best = max(findings, key=lambda f: f.confidence)
+        if _h(best) in TRIGGER and any(_h(f) == HypothesisType.UNKNOWN for f in findings):
+            # "A release shipped" is only a cause if something shows symptoms; here other layers are healthy.
+            return HypothesisType.UNKNOWN, "a release shipped but no layer shows symptoms"
         return _h(best), f"best available lead from {best.agent_type} (low confidence)"
 
     if any(_h(f) == HypothesisType.MULTI_LAYER_FAILURE for f in strong):
@@ -70,4 +75,5 @@ def decide_root_cause(findings: List[AgentFinding]) -> Tuple[HypothesisType, str
 def found_nothing(grounded: List[AgentFinding], min_layers: int = 2) -> bool:
     """True when at least `min_layers` specialists looked and every one found nothing wrong."""
     layers = {f.agent_type for f in grounded}
-    return len(layers) >= min_layers and all(_h(f) == HypothesisType.UNKNOWN for f in grounded)
+    quiet = lambda f: _h(f) == HypothesisType.UNKNOWN or (_h(f) in TRIGGER and f.confidence < STRONG)   # noqa: E731
+    return len(layers) >= min_layers and all(quiet(f) for f in grounded)

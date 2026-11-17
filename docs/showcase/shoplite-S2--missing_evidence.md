@@ -4,7 +4,7 @@
 
 - Result: Root cause: unknown (confidence 0.00, status max_iterations_reached).
 - Decisions made by: `rules+fault:missing_evidence`
-- Investigation id: `c5919c53-2389-4582-9d0a-1b2fb255a7f7`
+- Investigation id: `ae09c149-64b0-4718-9112-5f41d23377f8`
 - Injected fault (demo): `missing_evidence`
 
 ## Steps that need attention

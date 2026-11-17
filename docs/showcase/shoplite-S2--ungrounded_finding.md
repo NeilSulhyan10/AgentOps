@@ -4,7 +4,7 @@
 
 - Result: Root cause: unknown (confidence 0.00, status max_iterations_reached).
 - Decisions made by: `rules+fault:ungrounded_finding`
-- Investigation id: `1b46a00f-1935-4533-b784-1d5de3e6915e`
+- Investigation id: `be75b263-7d61-4072-85a3-66edd12adbe9`
 - Injected fault (demo): `ungrounded_finding`
 
 ## Steps that need attention

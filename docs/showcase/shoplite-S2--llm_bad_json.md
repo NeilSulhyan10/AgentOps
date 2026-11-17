@@ -4,7 +4,7 @@
 
 - Result: Root cause: kubernetes_oom (confidence 0.93, status completed).
 - Decisions made by: `rules+fault:llm_bad_json`
-- Investigation id: `443bd492-9e7a-4c3f-a836-766c7020aae7`
+- Investigation id: `07cd1616-e711-4fc5-ac6d-4ad38aea9b65`
 - Injected fault (demo): `llm_bad_json`
 
 ## Steps that need attention
